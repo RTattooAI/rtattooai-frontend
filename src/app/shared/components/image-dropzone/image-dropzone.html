@@ -1,0 +1,42 @@
+<div (dragover)="onDragOver($event)" (dragleave)="onDragLeave()" (drop)="onDrop($event)">
+  @if (previewUrl(); as preview) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
+        <app-icon name="image" [size]="14" class="text-slate-400 shrink-0" />
+        <span class="text-[12px] text-slate-600 font-mono truncate flex-1">{{ fileName() }} · {{ fileSize() }}</span>
+        <label class="text-[12px] font-medium text-accent hover:bg-accent/10 px-2 py-1 rounded cursor-pointer">
+          Cambiar
+          <input type="file" accept="image/jpeg,image/png" (change)="onFileInputChange($event)" hidden />
+        </label>
+        <button type="button" (click)="clear()" class="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded" title="Quitar imagen">
+          <app-icon name="x" [size]="14" />
+        </button>
+      </div>
+      <div class="bg-navy-950 grid place-items-center p-4 min-h-[280px]">
+        <img [src]="preview" alt="Vista previa del tatuaje" class="max-h-[440px] w-auto rounded ring-1 ring-white/10" />
+      </div>
+    </div>
+  } @else {
+    <label
+      class="bg-white rounded-lg border-2 border-dashed border-slate-300 grid place-items-center cursor-pointer transition-colors hover:bg-slate-50 h-[360px]"
+      [class.dropzone-active]="isDragOver()"
+    >
+      <div class="text-center px-6">
+        <div class="w-16 h-16 mx-auto rounded-full bg-accent/10 text-accent grid place-items-center mb-4">
+          <app-icon name="image-plus" [size]="26" [strokeWidth]="1.5" />
+        </div>
+        <div class="text-[16px] font-medium text-navy-900">Arrastre la imagen del tatuaje aquí</div>
+        <div class="text-[13px] text-slate-500 mt-1">o haga clic para seleccionar desde su equipo</div>
+        <div class="text-[11px] text-slate-400 mt-4 font-mono">JPG · PNG · máx. 10 MB</div>
+      </div>
+      <input type="file" accept="image/jpeg,image/png" (change)="onFileInputChange($event)" hidden />
+    </label>
+  }
+
+  @if (error()) {
+    <p class="mt-2 px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700 flex items-center gap-2" role="alert">
+      <app-icon name="triangle-alert" [size]="14" class="shrink-0" />
+      {{ error() }}
+    </p>
+  }
+</div>

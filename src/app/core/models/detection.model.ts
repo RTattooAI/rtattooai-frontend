@@ -1,0 +1,17 @@
+import { BBox } from './bbox.model';
+
+export type Verdict = 'match' | 'no_match';
+
+export interface Match {
+  catalogId: string;
+  band: string;
+  similarity: number;
+  referenceImageUrl: string | null;
+}
+
+export interface Detection {
+  bbox: BBox;
+  confidence: number;
+  verdict: Verdict;
+  matches: Match[];
+}

@@ -1,0 +1,160 @@
+@import 'tailwindcss';
+
+/* ── Design tokens (mirror of the Claude Design tailwind.config) ───────────── */
+@theme {
+  --font-sans: 'IBM Plex Sans', Roboto, 'Noto Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-navy-50: #f1f3fa;
+  --color-navy-100: #e2e6f3;
+  --color-navy-200: #bcc4e0;
+  --color-navy-300: #8b97c3;
+  --color-navy-400: #5d6ca4;
+  --color-navy-500: #3d4d88;
+  --color-navy-600: #2c3a70;
+  --color-navy-700: #222d5a;
+  --color-navy-800: #1e2761;
+  --color-navy-900: #161d4a;
+  --color-navy-950: #0e1438;
+
+  --color-accent: #3b82f6;
+  --color-accent-50: #eff6ff;
+  --color-accent-100: #dbeafe;
+  --color-accent-500: #3b82f6;
+  --color-accent-600: #2563eb;
+  --color-accent-700: #1d4ed8;
+
+  --color-surface: #f1f5f9;
+
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-pop: 0 8px 24px rgba(15, 23, 42, 0.12);
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+html,
+body {
+  margin: 0;
+}
+body {
+  font-family: 'IBM Plex Sans', Roboto, system-ui, sans-serif;
+}
+
+/* Scrollbars — subtle gov-dashboard feel */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+  border: 2px solid #f1f5f9;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Mono digits for tables and KPIs */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tattoo placeholder pattern */
+.tatuaje-placeholder {
+  background-color: #1e2937;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.04) 0 8px, transparent 8px 16px),
+    radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.18) 0, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.06) 0, transparent 40%);
+  color: #94a3b8;
+}
+.tatuaje-placeholder.light {
+  background-color: #e2e8f0;
+  background-image: repeating-linear-gradient(45deg, rgba(30, 39, 97, 0.05) 0 8px, transparent 8px 16px);
+  color: #475569;
+}
+
+/* Subtle focus ring */
+.focus-ring:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Animated bounding box pulse */
+@keyframes bboxPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
+  }
+}
+.bbox-pulse {
+  animation: bboxPulse 2.4s ease-out infinite;
+}
+
+/* Drag-and-drop hover */
+.dropzone-active {
+  background: #eff6ff !important;
+  border-color: #3b82f6 !important;
+}
+
+/* Sidebar active indicator */
+.nav-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: #3b82f6;
+  border-radius: 0 2px 2px 0;
+}
+
+/* Spinner */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Smooth screen transition */
+.screen-enter {
+  animation: fadeUp 0.35s ease-out;
+}
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Login background */
+.login-bg {
+  background-color: #0e1438;
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(59, 130, 246, 0.22) 0, transparent 50%),
+    radial-gradient(ellipse at 100% 100%, rgba(59, 130, 246, 0.18) 0, transparent 55%),
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(180deg, #0e1438 0%, #1e2761 100%);
+  background-size: auto, auto, 32px 32px, 32px 32px, auto;
+}
+
+/* Subtle grid texture */
+.grid-texture {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px;
+}

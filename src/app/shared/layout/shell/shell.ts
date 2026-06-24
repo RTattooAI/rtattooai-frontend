@@ -1,0 +1,118 @@
+import { Component, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { filter, map, startWith } from 'rxjs';
+import { AuthService } from '../../../core/auth';
+import { Icon, LogoMark } from '../../ui';
+
+interface NavLink {
+  link: string;
+  icon: string;
+  label: string;
+}
+
+interface ScreenMeta {
+  title: string;
+  breadcrumb: string[];
+}
+
+const BASE_NAV =
+  'relative w-full flex items-center gap-3 px-4 py-2.5 text-sm rounded-md transition-colors text-left';
+const ACTIVE_NAV = 'nav-active bg-white/10 text-white font-medium';
+const INACTIVE_NAV = 'text-navy-200 hover:bg-white/5 hover:text-white';
+
+@Component({
+  selector: 'app-shell',
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, LogoMark],
+  templateUrl: './shell.html'
+})
+export class Shell {
+  private readonly authService = inject(AuthService);
+  private readonly router = inject(Router);
+
+  readonly currentUser = this.authService.currentUser;
+
+  readonly operacionNav: NavLink[] = [
+    { link: '/upload', icon: 'scan-search', label: 'Nuevo análisis' },
+    { link: '/history', icon: 'history', label: 'Historial de consultas' },
+    { link: '/catalog/enroll', icon: 'book-marked', label: 'Catálogo de tatuajes' }
+  ];
+
+  readonly gestionNav: NavLink[] = [
+    { link: '/reports', icon: 'file-text', label: 'Reportes' },
+    { link: '/admin/users', icon: 'users', label: 'Usuarios' },
+    { link: '/admin/dashboard', icon: 'layout-grid', label: 'Panel de control' }
+  ];
+
+  readonly navOpen = signal(false);
+
+  readonly today = new Date().toLocaleDateString('es-PE', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric'
+  });
+
+  readonly initials = computed(() => {
+    const name = this.currentUser()?.name ?? '';
+    return (
+      name
+        .split(' ')
+        .map((part) => part[0])
+        .filter(Boolean)
+        .slice(0, 2)
+        .join('')
+        .toUpperCase() || 'PN'
+    );
+  });
+
+  private readonly currentUrl = toSignal(
+    this.router.events.pipe(
+      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
+      map(() => this.router.url),
+      startWith(this.router.url)
+    ),
+    { initialValue: this.router.url }
+  );
+
+  readonly meta = computed<ScreenMeta>(() => metaForUrl(this.currentUrl()));
+
+  navClass(active: boolean): string {
+    return `${BASE_NAV} ${active ? ACTIVE_NAV : INACTIVE_NAV}`;
+  }
+
+  openNav(): void {
+    this.navOpen.set(true);
+  }
+
+  closeNav(): void {
+    this.navOpen.set(false);
+  }
+
+  onLogout(): void {
+    this.authService.logout();
+    this.router.navigate(['/login']);
+  }
+}
+
+function metaForUrl(url: string): ScreenMeta {
+  if (url.startsWith('/results')) {
+    return { title: 'Resultados del análisis', breadcrumb: ['Inicio', 'Análisis', 'Resultados'] };
+  }
+  if (url.startsWith('/history')) {
+    return { title: 'Historial de consultas', breadcrumb: ['Inicio', 'Historial'] };
+  }
+  if (url.startsWith('/catalog')) {
+    return { title: 'Catálogo de tatuajes', breadcrumb: ['Inicio', 'Gestión', 'Catálogo'] };
+  }
+  if (url.startsWith('/admin/users')) {
+    return { title: 'Usuarios', breadcrumb: ['Inicio', 'Gestión', 'Usuarios'] };
+  }
+  if (url.startsWith('/admin/dashboard')) {
+    return { title: 'Panel de control', breadcrumb: ['Inicio', 'Gestión', 'Panel'] };
+  }
+  if (url.startsWith('/reports')) {
+    return { title: 'Reportes', breadcrumb: ['Inicio', 'Reportes'] };
+  }
+  return { title: 'Nuevo análisis', breadcrumb: ['Inicio', 'Análisis', 'Nuevo'] };
+}

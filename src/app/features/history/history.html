@@ -1,0 +1,114 @@
+<div class="screen-enter p-4 sm:p-6 lg:p-8 space-y-5">
+  <!-- Filters card -->
+  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-5">
+    <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+      <div>
+        <h3 class="text-[14px] font-semibold text-navy-900">Historial de consultas</h3>
+        <p class="text-[11.5px] text-slate-500 mt-0.5">{{ items().length }} análisis registrados · {{ rows().length }} en vista</p>
+      </div>
+      <button class="px-3 py-1.5 text-[12px] text-slate-600 hover:bg-slate-100 rounded-md flex items-center gap-1.5">
+        <app-icon name="download" [size]="13" /> Exportar CSV
+      </button>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="sm:col-span-2">
+        <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Buscar</span>
+        <div class="mt-1 relative">
+          <app-icon name="search" [size]="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            [value]="search()"
+            (input)="onSearchInput($event)"
+            placeholder="Buscar por código o banda…"
+            class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </div>
+      </div>
+
+      <div>
+        <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Estado</span>
+        <select
+          [value]="statusFilter()"
+          (change)="onStatusChange($event)"
+          class="mt-1 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+        >
+          @for (option of statusOptions; track option.value) {
+            <option [value]="option.value">{{ option.label }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Cargando…</span>
+    </div>
+  } @else if (error()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ error() }}</p>
+  } @else {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-[13px] min-w-[760px]">
+          <thead>
+            <tr class="text-left text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
+              <th class="px-5 py-2.5 font-medium">Análisis</th>
+              <th class="px-5 py-2.5 font-medium">Fecha y hora</th>
+              <th class="px-5 py-2.5 font-medium">Estado</th>
+              <th class="px-5 py-2.5 font-medium">Mejor coincidencia</th>
+              <th class="px-5 py-2.5 font-medium text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (row of rows(); track row.item.id) {
+              <tr class="hover:bg-slate-50/70 cursor-pointer" (click)="openAnalysis(row.item.id)">
+                <td class="px-5 py-3">
+                  <div class="flex items-center gap-3">
+                    <app-tattoo-thumb [id]="row.item.id" [imageUrl]="row.item.thumbnailUrl" [size]="36" />
+                    <span class="font-mono text-[12px] text-navy-900 font-medium truncate max-w-[180px]">{{ row.item.id }}</span>
+                  </div>
+                </td>
+                <td class="px-5 py-3 text-slate-600 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="px-5 py-3">
+                  <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1" [class]="row.status.badge">{{ row.status.label }}</span>
+                </td>
+                <td class="px-5 py-3">
+                  @if (row.item.topBand && row.band && row.similarityPct != null) {
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-800 truncate max-w-[160px]">{{ row.item.topBand }}</span>
+                      <span class="text-[11px] font-mono font-bold tabular px-1.5 py-0.5 rounded ring-1" [class]="row.band.soft + ' ' + row.band.ring + ' ' + row.band.text">{{ row.similarityPct }}%</span>
+                    </div>
+                  } @else {
+                    <span class="text-slate-400">—</span>
+                  }
+                </td>
+                <td class="px-5 py-3">
+                  <div class="flex items-center justify-end">
+                    <button (click)="openAnalysis(row.item.id); $event.stopPropagation()" class="text-[12px] text-accent hover:underline font-medium flex items-center gap-1">
+                      <app-icon name="file-text" [size]="12" /> Ver reporte
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="px-5 py-12 text-center text-[13px] text-slate-500">
+                  @if (items().length === 0) {
+                    Todavía no hay análisis registrados.
+                  } @else {
+                    No hay análisis que coincidan con los filtros.
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="px-5 py-3 border-t border-slate-200 flex items-center justify-between text-[12.5px]">
+        <div class="text-slate-500">Mostrando <span class="font-medium text-slate-900">{{ rows().length }}</span> análisis</div>
+      </div>
+    </div>
+  }
+</div>

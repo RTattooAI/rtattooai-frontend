@@ -1,0 +1,15 @@
+<div
+  class="relative bg-gradient-to-r from-amber-50 via-amber-50 to-amber-100 border-y border-amber-300 px-4 sm:px-8 py-3 flex items-start gap-3"
+  role="alert"
+>
+  <div class="w-9 h-9 rounded-full bg-amber-500 text-white grid place-items-center shrink-0 shadow-sm">
+    <app-icon name="triangle-alert" [size]="18" [strokeWidth]="2.25" />
+  </div>
+  <div class="flex-1 min-w-0">
+    <div class="text-[13px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-2 flex-wrap">
+      ⚠ Herramienta de apoyo — los resultados NO son determinantes
+      <span class="text-[10px] font-medium tracking-normal normal-case bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded">Aviso legal</span>
+    </div>
+    <p class="text-[12.5px] text-amber-900 leading-snug mt-0.5">{{ text() }}</p>
+  </div>
+</div>

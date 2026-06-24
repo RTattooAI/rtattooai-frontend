@@ -1,0 +1,135 @@
+<div class="login-bg min-h-screen flex">
+  <!-- Left — brand block -->
+  <div class="hidden lg:flex flex-col justify-between w-[46%] p-12 text-white relative overflow-hidden">
+    <div class="flex items-center gap-3">
+      <app-logo-mark [size]="40" />
+      <div>
+        <div class="font-semibold text-[19px] tracking-tight">RTattooAI</div>
+        <div class="text-[11px] uppercase tracking-[0.18em] text-navy-300">SISTEMA DE APOYO</div>
+      </div>
+    </div>
+
+    <div class="max-w-md space-y-6 relative z-10">
+      <h1 class="text-[34px] font-semibold leading-[1.1] tracking-tight">
+        Reconocimiento asistido<br />
+        de tatuajes para apoyo<br />
+        <span class="text-accent">pericial criminal</span>.
+      </h1>
+      <p class="text-[14px] text-navy-200 leading-relaxed">
+        Herramienta complementaria para peritos de la División de Criminalística. Los resultados generados por el modelo
+        son referenciales y <strong class="text-white">requieren validación pericial</strong>.
+      </p>
+    </div>
+
+    <div class="text-[11px] text-navy-300 leading-snug max-w-md relative z-10">
+      © 2026 Policía Nacional del Perú · Dirección de Criminalística<br />
+      Acceso restringido al personal autorizado. Toda actividad es registrada y auditada.
+    </div>
+
+    <div
+      class="absolute inset-0 opacity-30 pointer-events-none"
+      style="background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(255,255,255,0.02) 2px 3px)"
+    ></div>
+  </div>
+
+  <!-- Right — login card -->
+  <div class="flex-1 flex items-center justify-center p-6">
+    <form (submit)="onFormSubmit($event)" class="w-full max-w-[400px] bg-white rounded-xl shadow-pop p-8">
+      <div class="lg:hidden flex items-center gap-2 mb-6">
+        <app-logo-mark [size]="28" />
+        <div>
+          <div class="font-semibold text-[15px] tracking-tight text-navy-900">RTattooAI</div>
+          <div class="text-[10px] uppercase tracking-[0.14em] text-slate-500">Sistema de Apoyo · PNP</div>
+        </div>
+      </div>
+
+      <h2 class="text-[22px] font-semibold text-navy-900 tracking-tight">Ingresar al sistema</h2>
+      <p class="text-[13px] text-slate-500 mt-1">Use sus credenciales institucionales.</p>
+
+      <div class="mt-6 space-y-4">
+        <label class="block">
+          <span class="text-[12px] font-medium text-slate-700 uppercase tracking-wider">Correo institucional</span>
+          <div class="mt-1.5 relative">
+            <app-icon name="mail" [size]="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="email"
+              required
+              autocomplete="username"
+              [value]="email()"
+              (input)="onEmailInput($event)"
+              placeholder="usuario@policia.gob.pe"
+              class="w-full pl-9 pr-3 py-2.5 text-[14px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent focus:bg-white"
+            />
+          </div>
+        </label>
+
+        <label class="block">
+          <div class="flex items-center justify-between">
+            <span class="text-[12px] font-medium text-slate-700 uppercase tracking-wider">Contraseña</span>
+            <a href="#" class="text-[11px] text-accent hover:underline">¿Olvidó su contraseña?</a>
+          </div>
+          <div class="mt-1.5 relative">
+            <app-icon name="lock" [size]="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              [type]="showPassword() ? 'text' : 'password'"
+              required
+              autocomplete="current-password"
+              [value]="password()"
+              (input)="onPasswordInput($event)"
+              class="w-full pl-9 pr-10 py-2.5 text-[14px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent focus:bg-white font-mono tracking-wider"
+            />
+            <button
+              type="button"
+              (click)="togglePassword()"
+              class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-700"
+            >
+              <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" [size]="15" />
+            </button>
+          </div>
+        </label>
+
+        <label class="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer select-none">
+          <input type="checkbox" [checked]="remember()" (change)="toggleRemember($event)" class="w-4 h-4 accent-accent rounded" />
+          Mantener sesión activa en este equipo
+        </label>
+
+        @if (error()) {
+          <p class="px-3 py-2.5 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ error() }}</p>
+        }
+
+        <button
+          type="submit"
+          [disabled]="isSubmitting()"
+          class="w-full bg-navy-800 hover:bg-navy-900 disabled:bg-navy-300 text-white font-medium py-2.5 rounded-md text-[14px] flex items-center justify-center gap-2 transition-colors"
+        >
+          @if (isSubmitting()) {
+            <app-icon name="loader" [size]="16" class="spin" />
+            Verificando…
+          } @else {
+            Ingresar
+            <app-icon name="arrow-right" [size]="15" />
+          }
+        </button>
+      </div>
+
+      <div class="my-6 flex items-center gap-3 text-[11px] text-slate-400 uppercase tracking-wider">
+        <div class="flex-1 h-px bg-slate-200"></div>
+        o
+        <div class="flex-1 h-px bg-slate-200"></div>
+      </div>
+
+      <button
+        type="button"
+        class="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-md text-[13px] flex items-center justify-center gap-2"
+      >
+        <app-icon name="fingerprint" [size]="16" />
+        Ingresar con token PNP
+      </button>
+
+      <div class="mt-6 px-3 py-2.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug flex items-start gap-2">
+        <app-icon name="triangle-alert" [size]="14" class="text-amber-600 mt-0.5 shrink-0" />
+        <p>El acceso queda registrado para fines de auditoría. Reporte cualquier acceso no autorizado a la DIRTIC.</p>
+      </div>
+    </form>
+  </div>
+</div>

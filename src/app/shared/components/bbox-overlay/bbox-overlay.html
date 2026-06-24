@@ -1,0 +1,36 @@
+<div class="relative">
+  <img
+    #imgEl
+    class="w-full block select-none"
+    [src]="imageUrl()"
+    (load)="onImageLoad($event)"
+    alt="Imagen original con detecciones"
+  />
+
+  @for (box of scaledBoxes(); track box.index) {
+    <div
+      (click)="select(box.index)"
+      class="absolute border-2 rounded cursor-pointer transition-all"
+      [class.bbox-pulse]="box.index === activeIndex()"
+      [class.z-10]="box.index === activeIndex()"
+      [class.opacity-70]="box.index !== activeIndex()"
+      [class.hover:opacity-100]="box.index !== activeIndex()"
+      [style.left]="box.left"
+      [style.top]="box.top"
+      [style.width]="box.width"
+      [style.height]="box.height"
+      [style.border-color]="box.color"
+    >
+      <div
+        class="absolute -top-[22px] left-0 text-[10px] font-mono px-1.5 py-0.5 rounded text-white font-medium whitespace-nowrap"
+        [style.background]="box.color"
+      >
+        Det. {{ box.index + 1 }} · {{ box.confidencePct }}%
+      </div>
+      <div class="absolute top-0 left-0 w-2 h-2 -m-[3px]" [style.background]="box.color"></div>
+      <div class="absolute top-0 right-0 w-2 h-2 -m-[3px]" [style.background]="box.color"></div>
+      <div class="absolute bottom-0 left-0 w-2 h-2 -m-[3px]" [style.background]="box.color"></div>
+      <div class="absolute bottom-0 right-0 w-2 h-2 -m-[3px]" [style.background]="box.color"></div>
+    </div>
+  }
+</div>

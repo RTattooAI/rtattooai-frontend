@@ -1,0 +1,66 @@
+<div class="screen-enter p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-5">
+  <!-- Left — image area -->
+  <div class="lg:col-span-2 space-y-4">
+    <app-image-dropzone (fileSelected)="onFileSelected($event)" (removed)="onFileRemoved()" />
+
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-start gap-3 text-[12px]">
+      <app-icon name="info" [size]="16" class="text-slate-400 mt-0.5 shrink-0" />
+      <p class="text-slate-600 leading-relaxed">
+        Suba una fotografía nítida del tatuaje (JPG o PNG, hasta 10&nbsp;MB). El sistema detectará los tatuajes presentes
+        y los comparará contra el catálogo. El recorte y el realce de imagen estarán disponibles en una fase posterior.
+      </p>
+    </div>
+  </div>
+
+  <!-- Right — analyze panel -->
+  <aside class="space-y-4">
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-5 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-[14px] font-semibold text-navy-900">Imagen del tatuaje</h3>
+        <span class="text-[10px] uppercase tracking-wider text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded ring-1 ring-rose-200">Requerido</span>
+      </div>
+      <p class="text-[12.5px] text-slate-500 leading-relaxed">
+        Una vez cargada la imagen, ejecute el análisis para detectar tatuajes y obtener las coincidencias del catálogo
+        con su nivel de confianza.
+      </p>
+      <ul class="text-[12px] text-slate-600 space-y-1.5">
+        <li class="flex items-center gap-2">
+          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Formatos JPG o PNG
+        </li>
+        <li class="flex items-center gap-2">
+          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Tamaño máximo 10 MB
+        </li>
+        <li class="flex items-center gap-2">
+          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Vista previa antes de enviar
+        </li>
+      </ul>
+    </div>
+
+    @if (error()) {
+      <p class="px-3 py-2.5 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700 flex items-center gap-2" role="alert">
+        <app-icon name="triangle-alert" [size]="14" class="shrink-0" />
+        {{ error() }}
+      </p>
+    }
+
+    <button
+      type="button"
+      (click)="onAnalyze()"
+      [disabled]="!selectedFile() || isSubmitting()"
+      class="w-full bg-accent hover:bg-accent-600 disabled:bg-slate-300 text-white font-semibold py-3 rounded-md text-[14px] flex items-center justify-center gap-2 transition-colors shadow-card"
+    >
+      @if (isSubmitting()) {
+        <app-icon name="loader" [size]="16" class="spin" />
+        Analizando…
+      } @else {
+        <app-icon name="scan-search" [size]="16" />
+        Analizar imagen
+      }
+    </button>
+
+    <div class="text-[11px] text-slate-500 leading-relaxed flex items-start gap-2 px-1">
+      <app-icon name="shield-alert" [size]="13" class="text-amber-500 mt-0.5 shrink-0" />
+      <p>El resultado es <strong>preliminar y de apoyo</strong>. No constituye identificación definitiva y requiere validación de un analista.</p>
+    </div>
+  </aside>
+</div>
