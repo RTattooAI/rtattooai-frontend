@@ -113,17 +113,64 @@
               @if (detectionChips().length) {
                 <div class="px-4 py-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
                   <span class="text-[11px] text-slate-500 uppercase tracking-wider font-medium mr-2 shrink-0">Detecciones</span>
-                  @for (chip of detectionChips(); track chip.index) {
+                  @for (chip of detectionChips(); track chip.id) {
                     <button
                       (click)="selectDetection(chip.index)"
                       class="flex items-center gap-2 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors border shrink-0"
                       [class]="chip.index === activeDetection() ? 'border-navy-800 bg-navy-50 text-navy-900' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
                     >
+                      <input
+                        type="checkbox"
+                        [checked]="isSelectedForEnroll(chip.id) || isEnrolled(chip.id)"
+                        [disabled]="isEnrolled(chip.id)"
+                        (click)="$event.stopPropagation()"
+                        (change)="toggleEnroll(chip.id)"
+                        [title]="isEnrolled(chip.id) ? 'Ya agregado al catálogo' : 'Seleccionar para agregar al catálogo'"
+                        class="w-3.5 h-3.5 accent-accent shrink-0"
+                      />
                       <span class="w-2 h-2 rounded-full" [style.background]="chip.color"></span>
                       Det. {{ chip.index + 1 }} · <span class="font-mono tabular">{{ chip.pct }}%</span>
                     </button>
                   }
                 </div>
+
+                <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+                  <p class="text-[11.5px] text-slate-500 leading-relaxed max-w-md">
+                    Las detecciones de confianza alta se preseleccionan. Marque o desmarque las que desee agregar al
+                    catálogo; quedarán sin banda asignada hasta que un analista la confirme.
+                  </p>
+                  <button
+                    type="button"
+                    (click)="enrollSelected()"
+                    [disabled]="selectedCount() === 0 || isEnrolling()"
+                    class="shrink-0 flex items-center gap-1.5 text-[12.5px] font-semibold text-white bg-accent hover:bg-accent-600 disabled:bg-slate-300 px-3.5 py-2 rounded-md shadow-card"
+                  >
+                    @if (isEnrolling()) {
+                      <app-icon name="loader" [size]="14" class="spin" />
+                      Agregando…
+                    } @else {
+                      <app-icon name="plus-circle" [size]="14" />
+                      Agregar {{ selectedCount() }} al catálogo
+                    }
+                  </button>
+                </div>
+
+                @if (enrollError()) {
+                  <div class="px-4 py-2.5 border-t border-slate-100">
+                    <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700 flex items-center gap-2" role="alert">
+                      <app-icon name="triangle-alert" [size]="13" class="shrink-0" />
+                      {{ enrollError() }}
+                    </p>
+                  </div>
+                }
+                @if (enrollSuccess()) {
+                  <div class="px-4 py-2.5 border-t border-slate-100">
+                    <p class="px-3 py-2 rounded-md bg-emerald-50 border border-emerald-200 text-[12px] text-emerald-700 flex items-center gap-2">
+                      <app-icon name="check-circle-2" [size]="13" class="shrink-0" />
+                      {{ enrollSuccess() }}
+                    </p>
+                  </div>
+                }
               }
             </div>
 
@@ -200,7 +247,7 @@
                       <div class="flex-1 min-w-0">
                         <div class="flex items-start justify-between gap-2">
                           <div class="min-w-0">
-                            <div class="text-[13px] font-semibold text-navy-900 truncate">{{ vm.match.band }}</div>
+                            <div class="text-[13px] font-semibold truncate" [class]="vm.match.band ? 'text-navy-900' : 'text-slate-400 italic'">{{ vm.match.band || 'Sin banda asignada' }}</div>
                             <div class="text-[11px] text-slate-500 font-mono mt-0.5 truncate">{{ vm.match.catalogId }}</div>
                           </div>
                           <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full shrink-0 ring-1" [class]="vm.band.soft + ' ' + vm.band.ring">

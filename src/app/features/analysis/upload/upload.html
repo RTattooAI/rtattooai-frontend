@@ -10,6 +10,52 @@
         y los comparará contra el catálogo. El recorte y el realce de imagen estarán disponibles en una fase posterior.
       </p>
     </div>
+
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <h3 class="text-[14px] font-semibold text-navy-900">Datos de la persona analizada</h3>
+        <span class="text-[10px] uppercase tracking-wider text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded ring-1 ring-slate-200">Opcional</span>
+      </div>
+      <p class="text-[12px] text-slate-500 leading-relaxed">
+        Registrar estos datos facilita ubicar este caso más adelante si la persona ya tiene un expediente o vuelve a
+        ser analizada.
+      </p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div class="space-y-1">
+          <label for="personName" class="text-[12px] font-medium text-slate-600">Nombre</label>
+          <input
+            id="personName"
+            type="text"
+            [value]="personName()"
+            (input)="onPersonNameInput($event)"
+            placeholder="Nombre del detenido/a"
+            class="w-full text-[13px] border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
+          />
+        </div>
+        <div class="space-y-1">
+          <label for="documentId" class="text-[12px] font-medium text-slate-600">Documento de identidad</label>
+          <input
+            id="documentId"
+            type="text"
+            [value]="documentId()"
+            (input)="onDocumentIdInput($event)"
+            placeholder="DNI / CE"
+            class="w-full text-[13px] border border-slate-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
+          />
+        </div>
+      </div>
+      <div class="space-y-1">
+        <label for="notes" class="text-[12px] font-medium text-slate-600">Notas</label>
+        <textarea
+          id="notes"
+          rows="2"
+          [value]="notes()"
+          (input)="onNotesInput($event)"
+          placeholder="Observaciones del caso (opcional)"
+          class="w-full text-[13px] border border-slate-300 rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent"
+        ></textarea>
+      </div>
+    </div>
   </div>
 
   <!-- Right — analyze panel -->

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Analysis, AnalysisListItem } from '../models';
+import { Analysis, AnalysisListItem, CatalogItem } from '../models';
 
 /** El backend no garantiza que `matches` venga ordenado por similitud descendente. */
 function withSortedMatches(analysis: Analysis): Analysis {
@@ -19,9 +19,17 @@ function withSortedMatches(analysis: Analysis): Analysis {
 export class AnalysisService {
   private readonly http = inject(HttpClient);
 
-  create(image: File): Observable<Analysis> {
+  create(
+    image: File,
+    personName?: string,
+    documentId?: string,
+    notes?: string
+  ): Observable<Analysis> {
     const formData = new FormData();
     formData.append('image', image);
+    if (personName) formData.append('personName', personName);
+    if (documentId) formData.append('documentId', documentId);
+    if (notes) formData.append('notes', notes);
     return this.http
       .post<Analysis>(`${environment.apiUrl}/analyses`, formData)
       .pipe(map(withSortedMatches));
@@ -35,5 +43,11 @@ export class AnalysisService {
     return this.http
       .get<Analysis>(`${environment.apiUrl}/analyses/${id}`)
       .pipe(map(withSortedMatches));
+  }
+
+  enrollDetections(analysisId: string, detectionIds: string[]): Observable<CatalogItem[]> {
+    return this.http.post<CatalogItem[]>(`${environment.apiUrl}/analyses/${analysisId}/enroll`, {
+      detectionIds
+    });
   }
 }

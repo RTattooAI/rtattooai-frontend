@@ -10,6 +10,7 @@ export interface Match {
 }
 
 export interface Detection {
+  id: string;
   bbox: BBox;
   confidence: number;
   verdict: Verdict;

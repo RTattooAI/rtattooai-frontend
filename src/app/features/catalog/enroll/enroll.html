@@ -84,7 +84,7 @@
               <tr class="hover:bg-slate-50/70">
                 <td class="px-4 py-2"><app-tattoo-thumb [id]="row.item.catalogId" [imageUrl]="row.item.imageUrl" [size]="40" /></td>
                 <td class="px-4 py-3 font-mono text-[12px] text-navy-900 font-medium">{{ row.item.catalogId }}</td>
-                <td class="px-4 py-3 text-slate-800 font-medium">{{ row.item.band }}</td>
+                <td class="px-4 py-3 font-medium" [class]="row.item.band ? 'text-slate-800' : 'text-slate-400 italic'">{{ row.item.band ?? 'Sin banda asignada' }}</td>
                 <td class="px-4 py-3 text-slate-600">{{ row.item.source }}</td>
                 <td class="px-4 py-3">
                   @if (row.item.validated) {

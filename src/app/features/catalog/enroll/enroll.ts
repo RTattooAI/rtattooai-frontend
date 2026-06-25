@@ -39,13 +39,15 @@ export class Enroll implements OnInit {
         (item) =>
           term === '' ||
           item.catalogId.toLowerCase().includes(term) ||
-          item.band.toLowerCase().includes(term)
+          (item.band ?? '').toLowerCase().includes(term)
       )
       .map((item) => ({ item, date: parseApiDate(item.addedAt) }));
   });
 
   readonly total = computed(() => this.items().length);
-  readonly bandCount = computed(() => new Set(this.items().map((item) => item.band)).size);
+  readonly bandCount = computed(
+    () => new Set(this.items().map((item) => item.band).filter((band): band is string => band !== null)).size
+  );
   readonly validatedCount = computed(() => this.items().filter((item) => item.validated).length);
   readonly pendingCount = computed(() => this.total() - this.validatedCount());
 

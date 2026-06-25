@@ -16,6 +16,9 @@ export class Upload {
   readonly selectedFile = signal<File | null>(null);
   readonly isSubmitting = signal(false);
   readonly error = signal<string | null>(null);
+  readonly personName = signal('');
+  readonly documentId = signal('');
+  readonly notes = signal('');
 
   onFileSelected(file: File): void {
     this.selectedFile.set(file);
@@ -24,6 +27,18 @@ export class Upload {
 
   onFileRemoved(): void {
     this.selectedFile.set(null);
+  }
+
+  onPersonNameInput(event: Event): void {
+    this.personName.set((event.target as HTMLInputElement).value);
+  }
+
+  onDocumentIdInput(event: Event): void {
+    this.documentId.set((event.target as HTMLInputElement).value);
+  }
+
+  onNotesInput(event: Event): void {
+    this.notes.set((event.target as HTMLTextAreaElement).value);
   }
 
   onAnalyze(): void {
@@ -35,12 +50,14 @@ export class Upload {
     this.isSubmitting.set(true);
     this.error.set(null);
 
-    this.analysisService.create(file).subscribe({
-      next: (analysis) => this.router.navigate(['/results', analysis.id]),
-      error: (err) => {
-        this.isSubmitting.set(false);
-        this.error.set(err.error?.error ?? 'No se pudo enviar la imagen. Intenta de nuevo.');
-      }
-    });
+    this.analysisService
+      .create(file, this.personName().trim(), this.documentId().trim(), this.notes().trim())
+      .subscribe({
+        next: (analysis) => this.router.navigate(['/results', analysis.id]),
+        error: (err) => {
+          this.isSubmitting.set(false);
+          this.error.set(err.error?.error ?? 'No se pudo enviar la imagen. Intenta de nuevo.');
+        }
+      });
   }
 }

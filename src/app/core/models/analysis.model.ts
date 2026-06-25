@@ -14,6 +14,9 @@ export interface Analysis {
   processingMs: number | null;
   detections: Detection[];
   disclaimer: string;
+  personName: string | null;
+  documentId: string | null;
+  notes: string | null;
 }
 
 export interface AnalysisListItem {
@@ -23,4 +26,6 @@ export interface AnalysisListItem {
   createdAt: string;
   topBand: string | null;
   topSimilarity: number | null;
+  personName: string | null;
+  documentId: string | null;
 }

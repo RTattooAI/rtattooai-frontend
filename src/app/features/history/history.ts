@@ -59,7 +59,9 @@ export class History implements OnInit {
         (item) =>
           term === '' ||
           item.id.toLowerCase().includes(term) ||
-          (item.topBand ?? '').toLowerCase().includes(term)
+          (item.topBand ?? '').toLowerCase().includes(term) ||
+          (item.personName ?? '').toLowerCase().includes(term) ||
+          (item.documentId ?? '').toLowerCase().includes(term)
       )
       .map((item) => {
         const pct = item.topSimilarity != null ? Math.round(item.topSimilarity * 100) : null;

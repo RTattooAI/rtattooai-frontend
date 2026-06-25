@@ -15,11 +15,15 @@ interface MatchVm {
 }
 
 interface DetectionChip {
+  id: string;
   index: number;
   pct: number;
   color: string;
   verdict: Detection['verdict'];
 }
+
+/** Coincide con el umbral de "Alta" confianza usado en confidence.ts. */
+const ENROLL_DEFAULT_THRESHOLD_PCT = 80;
 
 interface ConfidenceSummary {
   alta: number;
@@ -42,6 +46,12 @@ export class Results {
   readonly activeDetection = signal(0);
   readonly activeMatch = signal(0);
 
+  readonly selectedDetectionIds = signal<Set<string>>(new Set());
+  readonly enrolledDetectionIds = signal<Set<string>>(new Set());
+  readonly isEnrolling = signal(false);
+  readonly enrollError = signal<string | null>(null);
+  readonly enrollSuccess = signal<string | null>(null);
+
   readonly detections = computed<Detection[]>(() => this.analysis()?.detections ?? []);
   readonly detectionCount = computed(() => this.detections().length);
   readonly totalMatches = computed(() => this.detections().reduce((acc, d) => acc + d.matches.length, 0));
@@ -52,9 +62,11 @@ export class Results {
   readonly detectionChips = computed<DetectionChip[]>(() =>
     this.detections().map((detection, index) => {
       const pct = Math.round(detection.confidence * 100);
-      return { index, pct, color: detectionColor(pct), verdict: detection.verdict };
+      return { id: detection.id, index, pct, color: detectionColor(pct), verdict: detection.verdict };
     })
   );
+
+  readonly selectedCount = computed(() => this.selectedDetectionIds().size);
 
   readonly matchVms = computed<MatchVm[]>(() =>
     (this.activeDet()?.matches ?? []).slice(0, 5).map((match, index) => {
@@ -99,6 +111,55 @@ export class Results {
     this.activeMatch.set(index);
   }
 
+  isSelectedForEnroll(detectionId: string): boolean {
+    return this.selectedDetectionIds().has(detectionId);
+  }
+
+  isEnrolled(detectionId: string): boolean {
+    return this.enrolledDetectionIds().has(detectionId);
+  }
+
+  toggleEnroll(detectionId: string): void {
+    if (this.isEnrolled(detectionId)) {
+      return;
+    }
+
+    const next = new Set(this.selectedDetectionIds());
+    if (next.has(detectionId)) {
+      next.delete(detectionId);
+    } else {
+      next.add(detectionId);
+    }
+    this.selectedDetectionIds.set(next);
+  }
+
+  enrollSelected(): void {
+    const item = this.analysis();
+    const detectionIds = [...this.selectedDetectionIds()];
+    if (!item || detectionIds.length === 0 || this.isEnrolling()) {
+      return;
+    }
+
+    this.isEnrolling.set(true);
+    this.enrollError.set(null);
+    this.enrollSuccess.set(null);
+
+    this.analysisService.enrollDetections(item.id, detectionIds).subscribe({
+      next: (catalogItems) => {
+        this.isEnrolling.set(false);
+        this.enrolledDetectionIds.set(new Set([...this.enrolledDetectionIds(), ...detectionIds]));
+        this.selectedDetectionIds.set(new Set());
+        this.enrollSuccess.set(
+          `${catalogItems.length} ${catalogItems.length === 1 ? 'tatuaje agregado' : 'tatuajes agregados'} al catálogo, sin banda asignada.`
+        );
+      },
+      error: (err) => {
+        this.isEnrolling.set(false);
+        this.enrollError.set(err.error?.error ?? 'No se pudo agregar al catálogo. Intenta de nuevo.');
+      }
+    });
+  }
+
   private load(id: string): void {
     this.isLoading.set(true);
     this.error.set(null);
@@ -107,6 +168,16 @@ export class Results {
         this.analysis.set(analysis);
         this.activeDetection.set(0);
         this.activeMatch.set(0);
+        this.selectedDetectionIds.set(
+          new Set(
+            analysis.detections
+              .filter((d) => Math.round(d.confidence * 100) >= ENROLL_DEFAULT_THRESHOLD_PCT)
+              .map((d) => d.id)
+          )
+        );
+        this.enrolledDetectionIds.set(new Set());
+        this.enrollError.set(null);
+        this.enrollSuccess.set(null);
         this.isLoading.set(false);
       },
       error: () => {
