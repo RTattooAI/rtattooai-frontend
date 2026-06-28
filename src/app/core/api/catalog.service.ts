@@ -18,4 +18,8 @@ export class CatalogService {
   list(): Observable<CatalogItem[]> {
     return this.http.get<CatalogItem[]>(`${environment.apiUrl}/catalog`);
   }
+
+  assignBand(catalogId: string, band: string): Observable<CatalogItem> {
+    return this.http.patch<CatalogItem>(`${environment.apiUrl}/catalog/${catalogId}/band`, { band });
+  }
 }

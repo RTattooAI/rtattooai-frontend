@@ -139,6 +139,16 @@ Flujo: Blob → `POST /enroll` del servicio IA → persiste metadatos en SQL.
 ### `GET /api/catalog`
 Lista entradas del catálogo (gestión y visibilidad). **Response 200:** arreglo de los objetos anteriores.
 
+### `PATCH /api/catalog/{catalogId}/band`
+Asigna o confirma la banda de un tatuaje del catálogo que todavía no la tiene (`band: null`), típicamente uno enrolado vía `POST /api/analyses/{id}/enroll`. También puede usarse para corregir la banda de un tatuaje ya asignado.
+**Request:**
+```json
+{ "band": "Los Pulpos" }
+```
+`catalogId` es el `catalogId` del tatuaje (p. ej. `tat_00026`), no un GUID interno. La banda es texto libre, igual que en `POST /api/catalog` (se busca o crea por nombre).
+**Response 200:** `CatalogItem` actualizado (ver arriba).
+**404** si `catalogId` no existe. **400** si `band` está vacío.
+
 ---
 
 ## C. Esquema Analysis (respuesta del backend)

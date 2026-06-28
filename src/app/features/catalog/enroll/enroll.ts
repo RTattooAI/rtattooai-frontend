@@ -1,5 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { ImageDropzone } from '../../../shared/components';
 import { Icon, TattooThumb } from '../../../shared/ui';
 import { CatalogService } from '../../../core/api';
@@ -13,7 +14,7 @@ interface CatalogRow {
 
 @Component({
   selector: 'app-enroll',
-  imports: [DatePipe, ImageDropzone, Icon, TattooThumb],
+  imports: [DatePipe, RouterLink, ImageDropzone, Icon, TattooThumb],
   templateUrl: './enroll.html'
 })
 export class Enroll implements OnInit {
@@ -31,6 +32,11 @@ export class Enroll implements OnInit {
   readonly isSubmitting = signal(false);
   readonly formError = signal<string | null>(null);
   readonly success = signal<string | null>(null);
+
+  // Inline band-assignment state, keyed by catalogId
+  readonly bandDrafts = signal<Record<string, string>>({});
+  readonly assigningIds = signal<Set<string>>(new Set());
+  readonly assignErrors = signal<Record<string, string>>({});
 
   readonly rows = computed<CatalogRow[]>(() => {
     const term = this.search().trim().toLowerCase();
@@ -81,6 +87,50 @@ export class Enroll implements OnInit {
 
   onBandInput(event: Event): void {
     this.band.set((event.target as HTMLInputElement).value);
+  }
+
+  bandDraftFor(catalogId: string): string {
+    return this.bandDrafts()[catalogId] ?? '';
+  }
+
+  isAssigning(catalogId: string): boolean {
+    return this.assigningIds().has(catalogId);
+  }
+
+  assignErrorFor(catalogId: string): string | null {
+    return this.assignErrors()[catalogId] ?? null;
+  }
+
+  onBandDraftInput(catalogId: string, event: Event): void {
+    this.bandDrafts.set({ ...this.bandDrafts(), [catalogId]: (event.target as HTMLInputElement).value });
+  }
+
+  assignBand(catalogId: string): void {
+    const band = this.bandDraftFor(catalogId).trim();
+    if (!band || this.isAssigning(catalogId)) {
+      return;
+    }
+
+    this.assigningIds.set(new Set([...this.assigningIds(), catalogId]));
+    this.assignErrors.set({ ...this.assignErrors(), [catalogId]: '' });
+
+    this.catalogService.assignBand(catalogId, band).subscribe({
+      next: (updated) => {
+        const nextAssigning = new Set(this.assigningIds());
+        nextAssigning.delete(catalogId);
+        this.assigningIds.set(nextAssigning);
+        this.items.set(this.items().map((item) => (item.catalogId === catalogId ? updated : item)));
+      },
+      error: (err) => {
+        const nextAssigning = new Set(this.assigningIds());
+        nextAssigning.delete(catalogId);
+        this.assigningIds.set(nextAssigning);
+        this.assignErrors.set({
+          ...this.assignErrors(),
+          [catalogId]: err.error?.error ?? 'No se pudo asignar la banda. Intenta de nuevo.'
+        });
+      }
+    });
   }
 
   onSubmit(): void {
