@@ -189,31 +189,76 @@
               </div>
             }
 
-            <!-- Validación pericial (flujo de fase posterior) -->
-            <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4">
-              <div class="flex items-center justify-between mb-3 gap-2">
-                <h3 class="text-[13px] font-semibold text-navy-900 flex items-center gap-1.5">
-                  <app-icon name="user-check" [size]="14" class="text-accent" /> Validación pericial
-                </h3>
-                <span class="text-[11px] text-slate-500 truncate">{{ analysis()?.detections?.length ? 'Pendiente de validación' : '' }}</span>
+            <!-- Validación pericial -->
+            @if (activeDet(); as det) {
+              <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4">
+                <div class="flex items-center justify-between mb-3 gap-2">
+                  <h3 class="text-[13px] font-semibold text-navy-900 flex items-center gap-1.5">
+                    <app-icon name="user-check" [size]="14" class="text-accent" /> Validación pericial
+                  </h3>
+                  <span
+                    class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1"
+                    [class]="{
+                      pending: 'bg-slate-100 text-slate-600 ring-slate-200',
+                      validated: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+                      review: 'bg-amber-50 text-amber-700 ring-amber-200',
+                      dismissed: 'bg-rose-50 text-rose-700 ring-rose-200'
+                    }[det.validationStatus]"
+                  >
+                    {{
+                      {
+                        pending: 'Pendiente de validación',
+                        validated: 'Validada',
+                        review: 'En revisión',
+                        dismissed: 'Descartada'
+                      }[det.validationStatus]
+                    }}
+                  </span>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    (click)="submitValidation('validated')"
+                    [disabled]="isValidating()"
+                    class="px-3 py-2.5 rounded-md border-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    [class]="det.validationStatus === 'validated' ? 'border-emerald-500 bg-emerald-100 text-emerald-800' : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'"
+                  >
+                    <app-icon name="thumbs-up" [size]="14" /> Validar coincidencia
+                  </button>
+                  <button
+                    type="button"
+                    (click)="submitValidation('review')"
+                    [disabled]="isValidating()"
+                    class="px-3 py-2.5 rounded-md border-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    [class]="det.validationStatus === 'review' ? 'border-amber-500 bg-amber-100 text-amber-800' : 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'"
+                  >
+                    <app-icon name="help-circle" [size]="14" /> Solicitar revisión
+                  </button>
+                  <button
+                    type="button"
+                    (click)="submitValidation('dismissed')"
+                    [disabled]="isValidating()"
+                    class="px-3 py-2.5 rounded-md border-2 text-[12.5px] font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                    [class]="det.validationStatus === 'dismissed' ? 'border-rose-500 bg-rose-100 text-rose-800' : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100'"
+                  >
+                    <app-icon name="thumbs-down" [size]="14" /> Descartar
+                  </button>
+                </div>
+                <textarea
+                  [value]="validationNotesDraft()"
+                  (input)="onValidationNotesInput($event)"
+                  placeholder="Observaciones del perito (se incluirán en el reporte)…"
+                  rows="2"
+                  class="mt-3 w-full px-3 py-2 text-[12.5px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+                ></textarea>
+                @if (validationError()) {
+                  <p class="mt-2 px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700 flex items-center gap-2" role="alert">
+                    <app-icon name="triangle-alert" [size]="13" class="shrink-0" />
+                    {{ validationError() }}
+                  </p>
+                }
               </div>
-              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <button class="px-3 py-2.5 rounded-md border-2 border-emerald-200 bg-emerald-50 text-emerald-700 text-[12.5px] font-semibold flex items-center justify-center gap-1.5 hover:bg-emerald-100">
-                  <app-icon name="thumbs-up" [size]="14" /> Validar coincidencia
-                </button>
-                <button class="px-3 py-2.5 rounded-md border-2 border-amber-200 bg-amber-50 text-amber-700 text-[12.5px] font-semibold flex items-center justify-center gap-1.5 hover:bg-amber-100">
-                  <app-icon name="help-circle" [size]="14" /> Solicitar revisión
-                </button>
-                <button class="px-3 py-2.5 rounded-md border-2 border-rose-200 bg-rose-50 text-rose-700 text-[12.5px] font-semibold flex items-center justify-center gap-1.5 hover:bg-rose-100">
-                  <app-icon name="thumbs-down" [size]="14" /> Descartar
-                </button>
-              </div>
-              <textarea
-                placeholder="Observaciones del perito (se incluirán en el reporte)…"
-                rows="2"
-                class="mt-3 w-full px-3 py-2 text-[12.5px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
-              ></textarea>
-            </div>
+            }
           </div>
 
           <!-- RIGHT — top-5 matches -->

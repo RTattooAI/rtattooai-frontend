@@ -3,7 +3,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { AnalysisService } from '../../../core/api';
-import { Analysis, Detection, Match } from '../../../core/models';
+import { Analysis, Detection, Match, ValidationStatus } from '../../../core/models';
 import { BboxOverlay, ConfidenceSemaforo, DisclaimerBanner } from '../../../shared/components';
 import { Icon, TattooThumb, ConfidenceBand, confidenceBand, detectionColor } from '../../../shared/ui';
 
@@ -51,6 +51,10 @@ export class Results {
   readonly isEnrolling = signal(false);
   readonly enrollError = signal<string | null>(null);
   readonly enrollSuccess = signal<string | null>(null);
+
+  readonly validationNotesDraft = signal('');
+  readonly isValidating = signal(false);
+  readonly validationError = signal<string | null>(null);
 
   readonly detections = computed<Detection[]>(() => this.analysis()?.detections ?? []);
   readonly detectionCount = computed(() => this.detections().length);
@@ -105,6 +109,38 @@ export class Results {
   selectDetection(index: number): void {
     this.activeDetection.set(index);
     this.activeMatch.set(0);
+    this.validationNotesDraft.set(this.detections()[index]?.validationNotes ?? '');
+    this.validationError.set(null);
+  }
+
+  onValidationNotesInput(event: Event): void {
+    this.validationNotesDraft.set((event.target as HTMLTextAreaElement).value);
+  }
+
+  submitValidation(status: Exclude<ValidationStatus, 'pending'>): void {
+    const item = this.analysis();
+    const det = this.activeDet();
+    if (!item || !det || this.isValidating()) {
+      return;
+    }
+
+    this.isValidating.set(true);
+    this.validationError.set(null);
+
+    this.analysisService.validateDetection(item.id, det.id, status, this.validationNotesDraft().trim() || null).subscribe({
+      next: (updated) => {
+        this.isValidating.set(false);
+        this.analysis.set({
+          ...item,
+          detections: item.detections.map((d) => (d.id === updated.id ? updated : d))
+        });
+        this.validationNotesDraft.set(updated.validationNotes ?? '');
+      },
+      error: (err) => {
+        this.isValidating.set(false);
+        this.validationError.set(err.error?.error ?? 'No se pudo registrar la validación. Intenta de nuevo.');
+      }
+    });
   }
 
   selectMatch(index: number): void {
@@ -168,6 +204,8 @@ export class Results {
         this.analysis.set(analysis);
         this.activeDetection.set(0);
         this.activeMatch.set(0);
+        this.validationNotesDraft.set(analysis.detections[0]?.validationNotes ?? '');
+        this.validationError.set(null);
         this.selectedDetectionIds.set(
           new Set(
             analysis.detections

@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Analysis, AnalysisListItem, CatalogItem } from '../models';
+import { Analysis, AnalysisListItem, CatalogItem, Detection, ValidationStatus } from '../models';
 
 /** El backend no garantiza que `matches` venga ordenado por similitud descendente. */
 function withSortedMatches(analysis: Analysis): Analysis {
@@ -49,5 +49,17 @@ export class AnalysisService {
     return this.http.post<CatalogItem[]>(`${environment.apiUrl}/analyses/${analysisId}/enroll`, {
       detectionIds
     });
+  }
+
+  validateDetection(
+    analysisId: string,
+    detectionId: string,
+    status: Exclude<ValidationStatus, 'pending'>,
+    notes: string | null
+  ): Observable<Detection> {
+    return this.http.patch<Detection>(
+      `${environment.apiUrl}/analyses/${analysisId}/detections/${detectionId}/validation`,
+      { status, notes }
+    );
   }
 }

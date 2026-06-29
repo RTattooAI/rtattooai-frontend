@@ -107,6 +107,16 @@ Historial del usuario.
 ### `GET /api/analyses/{id}`
 **Response 200:** objeto Analysis completo.
 
+### `PATCH /api/analyses/{id}/detections/{detectionId}/validation`
+Registra la validación pericial de un perito/analista sobre una detección puntual (no sobre el análisis completo): confirma la coincidencia, pide una segunda revisión, o la descarta. Reemplaza el estado anterior si ya existía (no hay historial de versiones).
+**Request:**
+```json
+{ "status": "validated", "notes": "Coincide con el tatuaje del expediente CON-..." }
+```
+`status` ∈ `"validated" | "review" | "dismissed"`. `notes` es opcional (texto libre del perito, se incluye en el reporte PDF).
+**Response 200:** `Detection` actualizado (ver esquema abajo), con `validationStatus`/`validationNotes` reflejando el cambio.
+**404** si el análisis o la detección no existen o no pertenecen al usuario. **400** si `status` no es uno de los valores permitidos.
+
 ### `POST /api/analyses/{id}/enroll`
 Agrega al catálogo una o más detecciones del análisis, elegidas por el analista (el frontend pre-marca las de `confidence` alta, pero la selección final es manual). El acto de seleccionar y enviar es la validación: no existe un endpoint de "validar" separado.
 **Request:**
@@ -172,7 +182,9 @@ Asigna o confirma la banda de un tatuaje del catálogo que todavía no la tiene 
       "verdict": "match",
       "matches": [
         { "catalogId": "tat_00123", "band": "Los Pulpos", "similarity": 0.88, "referenceImageUrl": null }
-      ]
+      ],
+      "validationStatus": "pending",
+      "validationNotes": null
     }
   ],
   "disclaimer": "Resultado preliminar de apoyo. No constituye identificación definitiva y requiere validación de un analista.",
@@ -187,6 +199,7 @@ Asigna o confirma la banda de un tatuaje del catálogo que todavía no la tiene 
 `verdict` por detección: `match` | `no_match` (rechazo open-set). La UI debe mostrar `no_match` como "sin coincidencia concluyente", no como ausencia de tatuaje.
 `referenceImageUrl`: el servicio IA lo devuelve `null`. Lo **pobla el backend** mapeando `catalogId → CatalogItem.ImageBlobPath` (URL SAS) cuando la entrada exista en SQL. Sembrar las 25 imágenes base de la galería en Blob + CatalogItem es opcional pero recomendable para resultados visuales.
 `personName`, `documentId`, `notes`: opcionales, capturados en `POST /api/analyses` para facilitar ubicar el expediente de un caso antiguo o recurrente; `null` cuando no se proporcionan.
+`validationStatus`: `pending` | `validated` | `review` | `dismissed`. Empieza en `pending` y se actualiza vía `PATCH /api/analyses/{id}/detections/{detectionId}/validation`. `validationNotes`: observaciones del perito, `null` hasta que se registre alguna.
 
 ---
 
@@ -194,7 +207,7 @@ Asigna o confirma la banda de un tatuaje del catálogo que todavía no la tiene 
 
 - **User**: Id, Name, Email, PasswordHash, Role
 - **Analysis**: Id, UserId (FK), ImageBlobPath, ThumbnailBlobPath, Status, ImageWidth, ImageHeight, ModelVersion, ProcessingMs, CreatedAt, PersonName?, DocumentId?, Notes?
-- **Detection**: Id, AnalysisId (FK), BboxX, BboxY, BboxWidth, BboxHeight, Confidence, Verdict
+- **Detection**: Id, AnalysisId (FK), BboxX, BboxY, BboxWidth, BboxHeight, Confidence, Verdict, ValidationStatus (default `pending`), ValidationNotes?, ValidatedByUserId? (FK), ValidatedAt?
 - **Match**: Id, DetectionId (FK), CatalogId, Band, Similarity, ReferenceImageUrl
 - **CatalogItem**: Id, CatalogId (id del lado de inferencia), BandId? (FK nullable — `null` hasta que un analista confirme la banda), ImageBlobPath, Source, AddedByUserId (FK), AddedAt, Validated, OriginAnalysisId? (FK nullable hacia Analysis, cuando el tatuaje se enroló desde una detección en vez de carga manual)
 

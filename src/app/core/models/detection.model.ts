@@ -1,6 +1,7 @@
 import { BBox } from './bbox.model';
 
 export type Verdict = 'match' | 'no_match';
+export type ValidationStatus = 'pending' | 'validated' | 'review' | 'dismissed';
 
 export interface Match {
   catalogId: string;
@@ -15,4 +16,6 @@ export interface Detection {
   confidence: number;
   verdict: Verdict;
   matches: Match[];
+  validationStatus: ValidationStatus;
+  validationNotes: string | null;
 }
