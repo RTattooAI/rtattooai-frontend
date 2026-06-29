@@ -1,16 +1,110 @@
-import { Component } from '@angular/core';
-import { FeaturePlaceholder } from '../../../shared/ui';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { DashboardService } from '../../../core/api';
+import { DashboardMetrics } from '../../../core/models';
+import { Icon } from '../../../shared/ui';
+
+interface StatusBarVm {
+  label: string;
+  count: number;
+  pct: number;
+  color: string;
+}
+
+interface TrendBarVm {
+  date: string;
+  count: number;
+  heightPct: number;
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  completado: '#10B981',
+  procesando: '#F59E0B',
+  'sin detección': '#94A3B8',
+  fallido: '#EF4444'
+};
+
+const VALIDATION_COLORS: Record<string, string> = {
+  pendiente: '#94A3B8',
+  validada: '#10B981',
+  'en revisión': '#F59E0B',
+  descartada: '#EF4444'
+};
 
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [FeaturePlaceholder],
-  template: `
-    <app-feature-placeholder
-      icon="layout-grid"
-      title="Panel de control"
-      description="El tablero de métricas e indicadores de uso, con exportación de datos, estará disponible en una fase posterior."
-      badge="Fase 3 · HU-10"
-    />
-  `
+  imports: [DecimalPipe, Icon],
+  templateUrl: './dashboard.html'
 })
-export class AdminDashboard {}
+export class AdminDashboard implements OnInit {
+  private readonly dashboardService = inject(DashboardService);
+
+  readonly metrics = signal<DashboardMetrics | null>(null);
+  readonly isLoading = signal(true);
+  readonly loadError = signal<string | null>(null);
+
+  readonly statusBars = computed<StatusBarVm[]>(() => {
+    const m = this.metrics();
+    if (!m) {
+      return [];
+    }
+    const entries: [string, number][] = [
+      ['Completado', m.analysesByStatus.completed],
+      ['Procesando', m.analysesByStatus.processing],
+      ['Sin detección', m.analysesByStatus.noDetection],
+      ['Fallido', m.analysesByStatus.failed]
+    ];
+    const total = Math.max(m.totalAnalyses, 1);
+    return entries.map(([label, count]) => ({
+      label,
+      count,
+      pct: Math.round((count / total) * 100),
+      color: STATUS_COLORS[label.toLowerCase()] ?? '#94A3B8'
+    }));
+  });
+
+  readonly validationBars = computed<StatusBarVm[]>(() => {
+    const m = this.metrics();
+    if (!m) {
+      return [];
+    }
+    const entries: [string, number][] = [
+      ['Pendiente', m.detectionsByValidation.pending],
+      ['Validada', m.detectionsByValidation.validated],
+      ['En revisión', m.detectionsByValidation.review],
+      ['Descartada', m.detectionsByValidation.dismissed]
+    ];
+    const total = Math.max(entries.reduce((acc, [, c]) => acc + c, 0), 1);
+    return entries.map(([label, count]) => ({
+      label,
+      count,
+      pct: Math.round((count / total) * 100),
+      color: VALIDATION_COLORS[label.toLowerCase()] ?? '#94A3B8'
+    }));
+  });
+
+  readonly trendBars = computed<TrendBarVm[]>(() => {
+    const days = this.metrics()?.analysesLast30Days ?? [];
+    const max = Math.max(...days.map((d) => d.count), 1);
+    return days.map((d) => ({
+      date: d.date,
+      count: d.count,
+      heightPct: Math.max(Math.round((d.count / max) * 100), d.count > 0 ? 6 : 2)
+    }));
+  });
+
+  readonly maxTopBandCount = computed(() => Math.max(...(this.metrics()?.topBands.map((b) => b.count) ?? [0]), 1));
+
+  ngOnInit(): void {
+    this.dashboardService.getMetrics().subscribe({
+      next: (metrics) => {
+        this.metrics.set(metrics);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.isLoading.set(false);
+        this.loadError.set('No se pudo cargar el panel de métricas.');
+      }
+    });
+  }
+}

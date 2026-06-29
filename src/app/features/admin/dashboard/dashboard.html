@@ -1,0 +1,146 @@
+<div class="screen-enter p-4 sm:p-6 lg:p-8 space-y-5">
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Cargando métricas…</span>
+    </div>
+  } @else if (loadError()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ loadError() }}</p>
+  } @else if (metrics(); as m) {
+    <!-- Summary strip -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">
+        <div class="w-9 h-9 grid place-items-center rounded-md text-navy-800 bg-navy-50"><app-icon name="scan-search" [size]="16" /></div>
+        <div>
+          <div class="text-[11px] text-slate-500 uppercase tracking-wider">Total análisis</div>
+          <div class="text-[20px] font-semibold tabular text-navy-900">{{ m.totalAnalyses }}</div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">
+        <div class="w-9 h-9 grid place-items-center rounded-md text-accent bg-accent/10"><app-icon name="database" [size]="16" /></div>
+        <div>
+          <div class="text-[11px] text-slate-500 uppercase tracking-wider">Catálogo</div>
+          <div class="text-[20px] font-semibold tabular text-navy-900">{{ m.catalog.total }}</div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">
+        <div class="w-9 h-9 grid place-items-center rounded-md text-emerald-700 bg-emerald-50"><app-icon name="users" [size]="16" /></div>
+        <div>
+          <div class="text-[11px] text-slate-500 uppercase tracking-wider">Bandas registradas</div>
+          <div class="text-[20px] font-semibold tabular text-navy-900">{{ m.catalog.bands }}</div>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">
+        <div class="w-9 h-9 grid place-items-center rounded-md text-amber-700 bg-amber-50"><app-icon name="clock" [size]="16" /></div>
+        <div>
+          <div class="text-[11px] text-slate-500 uppercase tracking-wider">Tiempo IA promedio</div>
+          <div class="text-[20px] font-semibold tabular text-navy-900">
+            @if (m.avgProcessingMs != null) {
+              {{ m.avgProcessingMs / 1000 | number: '1.1-1' }} s
+            } @else {
+              —
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Estado de análisis -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 space-y-3">
+        <h3 class="text-[13px] font-semibold text-navy-900">Estado de los análisis</h3>
+        <div class="space-y-2">
+          @for (bar of statusBars(); track bar.label) {
+            <div class="flex items-center gap-3 text-[12px]">
+              <span class="w-[90px] shrink-0 text-slate-600">{{ bar.label }}</span>
+              <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full" [style.width.%]="bar.pct" [style.background]="bar.color"></div>
+              </div>
+              <span class="w-8 text-right font-mono tabular text-slate-700">{{ bar.count }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      <!-- Validación pericial -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 space-y-3">
+        <h3 class="text-[13px] font-semibold text-navy-900">Validación pericial de detecciones</h3>
+        <div class="space-y-2">
+          @for (bar of validationBars(); track bar.label) {
+            <div class="flex items-center gap-3 text-[12px]">
+              <span class="w-[90px] shrink-0 text-slate-600">{{ bar.label }}</span>
+              <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full" [style.width.%]="bar.pct" [style.background]="bar.color"></div>
+              </div>
+              <span class="w-8 text-right font-mono tabular text-slate-700">{{ bar.count }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- Tendencia 30 dias -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 space-y-3">
+      <h3 class="text-[13px] font-semibold text-navy-900">Análisis por día (últimos 30 días)</h3>
+      <div class="flex items-end gap-[3px] h-[120px]">
+        @for (bar of trendBars(); track bar.date) {
+          <div
+            class="flex-1 bg-accent/70 hover:bg-accent rounded-sm transition-colors"
+            [style.height.%]="bar.heightPct"
+            [title]="bar.date + ': ' + bar.count + ' análisis'"
+          ></div>
+        }
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- Top bandas -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 space-y-3">
+        <h3 class="text-[13px] font-semibold text-navy-900">Bandas más identificadas (top coincidencia)</h3>
+        @if (m.topBands.length) {
+          <div class="space-y-2">
+            @for (band of m.topBands; track band.band) {
+              <div class="flex items-center gap-3 text-[12px]">
+                <span class="w-[140px] shrink-0 text-slate-600 truncate">{{ band.band || 'Sin banda' }}</span>
+                <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div class="h-full rounded-full bg-navy-700" [style.width.%]="(band.count / maxTopBandCount()) * 100"></div>
+                </div>
+                <span class="w-8 text-right font-mono tabular text-slate-700">{{ band.count }}</span>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="text-[12px] text-slate-400">Todavía no hay suficientes datos.</p>
+        }
+      </div>
+
+      <!-- Usuarios -->
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 space-y-3">
+        <h3 class="text-[13px] font-semibold text-navy-900">Usuarios del sistema</h3>
+        <div class="grid grid-cols-2 gap-3 text-[12px]">
+          <div class="bg-slate-50 rounded-md p-3">
+            <div class="text-slate-500 text-[11px] uppercase tracking-wider">Total</div>
+            <div class="text-[18px] font-semibold tabular text-navy-900">{{ m.users.total }}</div>
+          </div>
+          <div class="bg-slate-50 rounded-md p-3">
+            <div class="text-slate-500 text-[11px] uppercase tracking-wider">Activos</div>
+            <div class="text-[18px] font-semibold tabular text-navy-900">{{ m.users.active }}</div>
+          </div>
+          <div class="bg-slate-50 rounded-md p-3">
+            <div class="text-slate-500 text-[11px] uppercase tracking-wider">Analistas</div>
+            <div class="text-[18px] font-semibold tabular text-navy-900">{{ m.users.byRole.analyst }}</div>
+          </div>
+          <div class="bg-slate-50 rounded-md p-3">
+            <div class="text-slate-500 text-[11px] uppercase tracking-wider">Supervisores / Admin</div>
+            <div class="text-[18px] font-semibold tabular text-navy-900">{{ m.users.byRole.supervisor + m.users.byRole.admin }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-[11px] text-slate-400 flex items-center gap-1.5">
+      <app-icon name="info" [size]="12" />
+      La exportación de datos de este panel queda para una fase posterior.
+    </p>
+  }
+</div>
