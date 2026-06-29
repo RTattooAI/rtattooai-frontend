@@ -9,6 +9,7 @@ interface NavLink {
   link: string;
   icon: string;
   label: string;
+  roles?: string[];
 }
 
 interface ScreenMeta {
@@ -38,11 +39,15 @@ export class Shell {
     { link: '/catalog/enroll', icon: 'book-marked', label: 'Catálogo de tatuajes' }
   ];
 
-  readonly gestionNav: NavLink[] = [
-    { link: '/reports', icon: 'file-text', label: 'Reportes' },
-    { link: '/admin/users', icon: 'users', label: 'Usuarios' },
-    { link: '/admin/dashboard', icon: 'layout-grid', label: 'Panel de control' }
+  private readonly allGestionNav: NavLink[] = [
+    { link: '/admin/users', icon: 'users', label: 'Usuarios', roles: ['admin'] },
+    { link: '/admin/dashboard', icon: 'layout-grid', label: 'Panel de control', roles: ['admin', 'supervisor'] }
   ];
+
+  readonly gestionNav = computed<NavLink[]>(() => {
+    const role = this.currentUser()?.role;
+    return this.allGestionNav.filter((item) => !item.roles || (role && item.roles.includes(role)));
+  });
 
   readonly navOpen = signal(false);
 
@@ -110,9 +115,6 @@ function metaForUrl(url: string): ScreenMeta {
   }
   if (url.startsWith('/admin/dashboard')) {
     return { title: 'Panel de control', breadcrumb: ['Inicio', 'Gestión', 'Panel'] };
-  }
-  if (url.startsWith('/reports')) {
-    return { title: 'Reportes', breadcrumb: ['Inicio', 'Reportes'] };
   }
   return { title: 'Nuevo análisis', breadcrumb: ['Inicio', 'Análisis', 'Nuevo'] };
 }

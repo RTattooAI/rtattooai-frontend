@@ -65,7 +65,7 @@ El servicio genera vistas degradadas, calcula los embeddings, los agrega a la ga
 
 ## B. Backend (ASP.NET Core) — PÚBLICO (consumido por el frontend)
 
-Todas las rutas, salvo login, requieren header `Authorization: Bearer <jwt>`.
+Todas las rutas, salvo login, requieren header `Authorization: Bearer <jwt>`. Algunas además requieren un rol específico (`Authorize(Roles=...)` en el backend, no solo una restricción de UI) — se indica en cada endpoint cuando aplica. Roles existentes: `analyst`, `supervisor`, `admin`.
 
 ### `POST /api/auth/login`
 **Request:**
@@ -159,6 +159,32 @@ Asigna o confirma la banda de un tatuaje del catálogo que todavía no la tiene 
 **Response 200:** `CatalogItem` actualizado (ver arriba).
 **404** si `catalogId` no existe. **400** si `band` está vacío.
 
+### `GET /api/users`
+Lista las cuentas del sistema. **Requiere rol `admin`** (403 para cualquier otro rol).
+**Response 200:**
+```json
+[
+  { "id": "guid", "fullName": "Analista 1", "email": "analista@pnp.gob.pe", "role": "admin", "active": true, "createdAt": "2026-06-24T07:31:13Z" }
+]
+```
+`role` ∈ `"analyst" | "supervisor" | "admin"`.
+
+### `POST /api/users`
+Crea una cuenta nueva. **Requiere rol `admin`**.
+**Request:**
+```json
+{ "fullName": "Juana Pérez", "email": "juana@pnp.gob.pe", "password": "mínimo 8 caracteres", "role": "analyst" }
+```
+**Response 201:** objeto `User` (ver arriba). **400** si el correo ya existe, el rol no es válido, o la contraseña tiene menos de 8 caracteres.
+
+### `PATCH /api/users/{id}/status`
+Activa o desactiva una cuenta (un usuario inactivo no puede iniciar sesión). **Requiere rol `admin`**.
+**Request:**
+```json
+{ "active": false }
+```
+**Response 200:** objeto `User` actualizado. **404** si `id` no existe.
+
 ---
 
 ## C. Esquema Analysis (respuesta del backend)
@@ -205,7 +231,7 @@ Asigna o confirma la banda de un tatuaje del catálogo que todavía no la tiene 
 
 ## D. Modelo de datos (EF Core / SQL Server)
 
-- **User**: Id, Name, Email, PasswordHash, Role
+- **User**: Id, Name, Email, PasswordHash, Role (`analyst` | `supervisor` | `admin`), Active
 - **Analysis**: Id, UserId (FK), ImageBlobPath, ThumbnailBlobPath, Status, ImageWidth, ImageHeight, ModelVersion, ProcessingMs, CreatedAt, PersonName?, DocumentId?, Notes?
 - **Detection**: Id, AnalysisId (FK), BboxX, BboxY, BboxWidth, BboxHeight, Confidence, Verdict, ValidationStatus (default `pending`), ValidationNotes?, ValidatedByUserId? (FK), ValidatedAt?
 - **Match**: Id, DetectionId (FK), CatalogId, Band, Similarity, ReferenceImageUrl

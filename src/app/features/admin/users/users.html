@@ -1,0 +1,163 @@
+<div class="screen-enter p-4 sm:p-6 lg:p-8 space-y-5">
+  <!-- Header / actions -->
+  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-3 flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h3 class="text-[14px] font-semibold text-navy-900">Usuarios del sistema</h3>
+      <p class="text-[11.5px] text-slate-500 mt-0.5">{{ items().length }} cuentas registradas</p>
+    </div>
+    <button
+      (click)="openForm()"
+      class="px-3.5 py-2 text-[13px] font-medium text-white bg-accent hover:bg-accent-600 rounded-md flex items-center gap-1.5 shadow-card"
+    >
+      <app-icon name="plus" [size]="14" [strokeWidth]="2.5" /> Nuevo usuario
+    </button>
+  </div>
+
+  <!-- Table -->
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Cargando usuarios…</span>
+    </div>
+  } @else if (loadError()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ loadError() }}</p>
+  } @else {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-[13px] min-w-[640px]">
+          <thead>
+            <tr class="text-left text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
+              <th class="px-4 py-2.5 font-medium">Nombre</th>
+              <th class="px-4 py-2.5 font-medium">Correo</th>
+              <th class="px-4 py-2.5 font-medium">Rol</th>
+              <th class="px-4 py-2.5 font-medium">Estado</th>
+              <th class="px-4 py-2.5 font-medium">Creado</th>
+              <th class="px-4 py-2.5 font-medium text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (row of rows(); track row.item.id) {
+              <tr class="hover:bg-slate-50/70">
+                <td class="px-4 py-3 font-medium text-navy-900">{{ row.item.fullName }}</td>
+                <td class="px-4 py-3 text-slate-600 font-mono text-[12px]">{{ row.item.email }}</td>
+                <td class="px-4 py-3">
+                  <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1" [class]="roleBadges[row.item.role]">
+                    {{ roleLabels[row.item.role] }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  @if (row.item.active) {
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">Activo</span>
+                  } @else {
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-rose-50 text-rose-700 ring-rose-200">Inactivo</span>
+                  }
+                </td>
+                <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy' }}</td>
+                <td class="px-4 py-3 text-right">
+                  <button
+                    (click)="toggleActive(row.item)"
+                    [disabled]="isToggling(row.item.id)"
+                    class="text-[12px] font-medium flex items-center gap-1 ml-auto disabled:opacity-50"
+                    [class]="row.item.active ? 'text-rose-600 hover:underline' : 'text-emerald-700 hover:underline'"
+                  >
+                    @if (isToggling(row.item.id)) {
+                      <app-icon name="loader" [size]="12" class="spin" />
+                    } @else {
+                      <app-icon name="power" [size]="12" />
+                    }
+                    {{ row.item.active ? 'Desactivar' : 'Activar' }}
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="px-4 py-12 text-center text-[13px] text-slate-500">No hay usuarios registrados.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- New user modal -->
+@if (showForm()) {
+  <div class="fixed inset-0 z-40 bg-navy-950/60 backdrop-blur-sm grid place-items-center p-6">
+    <div class="bg-white rounded-xl shadow-pop w-full max-w-[480px] max-h-[90vh] overflow-auto">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+        <div>
+          <h3 class="text-[16px] font-semibold text-navy-900">Nuevo usuario</h3>
+          <p class="text-[12px] text-slate-500 mt-0.5">Crea una cuenta para personal autorizado.</p>
+        </div>
+        <button (click)="closeForm()" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded"><app-icon name="x" [size]="16" /></button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Nombre completo</span>
+          <input
+            [value]="fullName()"
+            (input)="onFullNameInput($event)"
+            placeholder="Ej. Juana Pérez"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Correo institucional</span>
+          <input
+            type="email"
+            [value]="email()"
+            (input)="onEmailInput($event)"
+            placeholder="usuario@pnp.gob.pe"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Contraseña inicial</span>
+          <input
+            type="password"
+            [value]="password()"
+            (input)="onPasswordInput($event)"
+            placeholder="Mínimo 8 caracteres"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Rol</span>
+          <select
+            [value]="role()"
+            (change)="onRoleChange($event)"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          >
+            <option value="analyst">Analista</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </label>
+
+        @if (formError()) {
+          <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ formError() }}</p>
+        }
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2 bg-slate-50">
+        <button (click)="closeForm()" class="px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-200 rounded-md font-medium">Cancelar</button>
+        <button
+          (click)="onSubmit()"
+          [disabled]="!fullName().trim() || !email().trim() || password().length < 8 || isSubmitting()"
+          class="px-4 py-2 text-[13px] text-white bg-accent hover:bg-accent-600 disabled:bg-slate-300 rounded-md font-semibold shadow-card flex items-center gap-2"
+        >
+          @if (isSubmitting()) {
+            <app-icon name="loader" [size]="14" class="spin" /> Creando…
+          } @else {
+            Crear usuario
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

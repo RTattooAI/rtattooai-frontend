@@ -34,12 +34,14 @@
         </a>
       }
 
-      <div class="px-3 pt-4 pb-1 text-[10px] uppercase tracking-[0.14em] text-navy-400 font-medium">Gestión</div>
-      @for (item of gestionNav; track item.link) {
-        <a [routerLink]="item.link" routerLinkActive #rlg="routerLinkActive" (click)="closeNav()" [class]="navClass(rlg.isActive)">
-          <app-icon [name]="item.icon" [size]="18" />
-          <span class="flex-1">{{ item.label }}</span>
-        </a>
+      @if (gestionNav().length) {
+        <div class="px-3 pt-4 pb-1 text-[10px] uppercase tracking-[0.14em] text-navy-400 font-medium">Gestión</div>
+        @for (item of gestionNav(); track item.link) {
+          <a [routerLink]="item.link" routerLinkActive #rlg="routerLinkActive" (click)="closeNav()" [class]="navClass(rlg.isActive)">
+            <app-icon [name]="item.icon" [size]="18" />
+            <span class="flex-1">{{ item.label }}</span>
+          </a>
+        }
       }
     </nav>
 

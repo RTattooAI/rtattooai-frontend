@@ -29,10 +29,6 @@ export const routes: Routes = [
         loadComponent: () => import('./features/catalog/enroll/enroll').then((m) => m.Enroll)
       },
       {
-        path: 'reports',
-        loadComponent: () => import('./features/reports/reports').then((m) => m.Reports)
-      },
-      {
         path: 'admin/users',
         canActivate: [roleGuard(['admin'])],
         loadComponent: () => import('./features/admin/users/users').then((m) => m.AdminUsers)

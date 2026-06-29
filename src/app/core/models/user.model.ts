@@ -9,3 +9,14 @@ export interface LoginResponse {
   expiresAt: string;
   user: User;
 }
+
+export type UserRole = 'analyst' | 'supervisor' | 'admin';
+
+export interface UserListItem {
+  id: string;
+  fullName: string;
+  email: string;
+  role: UserRole;
+  active: boolean;
+  createdAt: string;
+}
