@@ -6,6 +6,7 @@ import { AnalysisService } from '../../../core/api';
 import { Analysis, Detection, Match, ValidationStatus } from '../../../core/models';
 import { BboxOverlay, ConfidenceSemaforo, DisclaimerBanner } from '../../../shared/components';
 import { Icon, TattooThumb, ConfidenceBand, confidenceBand, detectionColor } from '../../../shared/ui';
+import { buildAnalysisPdf } from './pdf-report';
 
 interface MatchVm {
   match: Match;
@@ -55,6 +56,9 @@ export class Results {
   readonly validationNotesDraft = signal('');
   readonly isValidating = signal(false);
   readonly validationError = signal<string | null>(null);
+
+  readonly isExportingPdf = signal(false);
+  readonly pdfExportError = signal<string | null>(null);
 
   readonly detections = computed<Detection[]>(() => this.analysis()?.detections ?? []);
   readonly detectionCount = computed(() => this.detections().length);
@@ -194,6 +198,25 @@ export class Results {
         this.enrollError.set(err.error?.error ?? 'No se pudo agregar al catálogo. Intenta de nuevo.');
       }
     });
+  }
+
+  async exportPdf(): Promise<void> {
+    const item = this.analysis();
+    if (!item || this.isExportingPdf()) {
+      return;
+    }
+
+    this.isExportingPdf.set(true);
+    this.pdfExportError.set(null);
+
+    try {
+      const doc = await buildAnalysisPdf(item);
+      doc.save(`rtattooai-reporte-${item.id}.pdf`);
+    } catch {
+      this.pdfExportError.set('No se pudo generar el reporte PDF. Intenta de nuevo.');
+    } finally {
+      this.isExportingPdf.set(false);
+    }
   }
 
   private load(id: string): void {
