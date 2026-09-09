@@ -419,3 +419,150 @@ Las detecciones **no tienen identificador** porque no existen en la base de dato
 ### Cabeceras
 
 `Permissions-Policy` pasa de `camera=()` a **`camera=(self)`** en la API y en nginx: con `camera=()` el navegador bloquea `getUserMedia` aunque el usuario conceda el permiso. El micrófono y la ubicación siguen bloqueados. La CSP del frontend añade `media-src 'self' blob:` para el visor de la cámara.
+
+---
+
+## G. Bandas, catálogo descriptivo, paginación y versionado de modelos (setiembre 2026)
+
+Cierra los requisitos funcionales que quedaban abiertos en TP1: RF-02, RF-09, RF-10, RF-12, RF-13, RF-16 y RF-17.
+
+### `GET /info` (servicio de inferencia, INTERNO)
+
+Composición exacta del modelo cargado. La consume el backend para versionar (RF-16).
+
+```json
+{
+  "model_version": "yolov8m + dinov2-vits14 + head-v1",
+  "detector": "yolov8m_best.onnx",
+  "embedder": "dinov2-vits14",
+  "head": "embed_head.pt",
+  "embedding_dim": 256,
+  "threshold": 0.55,
+  "margin": 0.05,
+  "det_conf": 0.25,
+  "det_iou": 0.45,
+  "gallery_size": 425,
+  "gallery_identities": 85,
+  "gallery_bands": 5
+}
+```
+
+### `GET /api/bands` · `POST` · `PUT /{id}` · `PATCH /{id}/status` · `DELETE /{id}`
+
+Mantenimiento de bandas criminales (RF-10). **Lectura** para cualquier usuario autenticado: el analista necesita conocer las bandas para trabajar. **Escritura** para `supervisor` y `admin`.
+
+```json
+{
+  "id": "0f8a…",
+  "name": "Los Pulpos",
+  "alias": "Pulpos",
+  "region": "La Libertad",
+  "dangerLevel": "alto",
+  "description": "…",
+  "active": true,
+  "tattooCount": 7,
+  "createdAt": "2026-09-09T12:00:00Z"
+}
+```
+
+- `dangerLevel` admite únicamente `bajo`, `medio` o `alto`, o `null`. Otro valor devuelve **400**. Se limita a tres para que el dato siga siendo agregable en el panel.
+- `name` es único; un duplicado devuelve **400**.
+- `DELETE` responde **409** si la banda tiene tatuajes en el catálogo: borrarla dejaría huérfanas entradas que sustentan resultados ya emitidos. Se desactiva con `PATCH /{id}/status`.
+
+### `GET /api/catalog` — filtros (RF-09)
+
+Parámetros opcionales: `band`, `category`, `bodyLocation`, `tag`, `validated` (`true`/`false`) y `q` (código, nombre, descripción o banda). Sin parámetros devuelve el catálogo completo, como antes.
+
+El filtro `tag` compara **etiquetas completas**, no subcadenas: con `LIKE`, `león` devolvería también `leones`.
+
+### `GET /api/catalog/facets`
+
+Valores que existen realmente en el catálogo, para que el cliente no ofrezca filtros que no devuelven nada.
+
+```json
+{ "bands": ["Los Pulpos"], "categories": ["Símbolo"], "bodyLocations": ["Antebrazo"], "tags": ["corona", "puntas"] }
+```
+
+### `PATCH /api/catalog/{catalogId}` (supervisor/admin)
+
+Campos descriptivos de una entrada. **No incluye la imagen**: el vector de la galería se calculó a partir de ella, así que sustituirla dejaría el registro describiendo algo distinto de lo que el sistema compara.
+
+```json
+{ "name": "Corona de tres puntas", "description": "…", "category": "Símbolo", "bodyLocation": "Antebrazo derecho", "tags": "corona, puntas" }
+```
+
+`tags` viaja como texto separado por comas y se devuelve normalizado como arreglo, en minúsculas y sin repetidos (máximo 12 etiquetas de 30 caracteres).
+
+### Cambios en `POST /api/catalog`
+
+El formulario acepta además `name`, `description`, `category`, `bodyLocation` y `tags`. Un campo ausente se guarda vacío; el resto del contrato no cambia.
+
+### Cambios en el esquema `CatalogItem`
+
+Se añaden `bandId`, `name`, `description`, `category`, `bodyLocation` y `tags` (arreglo de cadenas). Los campos anteriores se mantienen.
+
+### `GET /api/analyses` — paginación y filtros (RF-13)
+
+Parámetros: `scope`, `from`, `to` (fechas `yyyy-MM-dd`), `status`, `q`, `page` y `pageSize`.
+
+**La respuesta deja de ser un arreglo** y pasa a ser una página:
+
+```json
+{ "items": [ /* AnalysisListItem */ ], "total": 137, "page": 2, "pageSize": 25, "totalPages": 6 }
+```
+
+- El rango se interpreta por días completos: `to=2026-09-03` incluye todo el día 3.
+- `pageSize` se acota a 25 por defecto y a 100 como máximo: una sola petición no puede arrastrar la tabla entera.
+- Un `status` desconocido se ignora en vez de fallar; un filtro mal escrito no debe impedir ver el historial.
+- Desaparece el tope fijo de 200 registros.
+
+`GET /api/analyses/export` acepta los mismos filtros, de modo que lo exportado coincide con lo que se está viendo.
+
+### `GET /api/audit` — paginación y filtros (RF-15)
+
+Parámetros: `from`, `to`, `action`, `userEmail`, `page`, `pageSize` (50 por defecto, 200 máximo). Devuelve la misma forma de página que el historial. Sustituye al anterior `?limit=`.
+
+### `GET /api/audit/export` (admin) y `GET /api/dashboard/metrics/export` (supervisor/admin)
+
+CSV con BOM UTF-8. RF-17.
+
+- El de auditoría acepta los mismos filtros que `GET /api/audit` y está acotado a 50 000 filas: el registro crece sin límite por diseño (RNF-08 pide un año de retención).
+- El de métricas usa formato largo — `seccion,metrica,valor` — para que la serie diaria y las bandas más frecuentes quepan en el mismo archivo que los totales.
+
+En todas las exportaciones, un texto libre que empiece por `=`, `+`, `-` o `@` se antepone con un apóstrofo, para que Excel no lo interprete como fórmula.
+
+### `GET /api/models` (supervisor/admin) · `PUT /api/models` (admin)
+
+Inventario de versiones del modelo (RF-16).
+
+```json
+{
+  "runtime": { /* misma forma que GET /info del servicio de inferencia */ },
+  "versions": [
+    {
+      "id": "…", "identifier": "yolov8m + dinov2-vits14 + head-v1",
+      "detector": "yolov8m_best.onnx", "embedder": "dinov2-vits14", "head": "embed_head.pt",
+      "map50": 0.915, "top1": 0.982, "top5": 0.994,
+      "threshold": 0.55, "margin": 0.05,
+      "source": "OE3 — reports/metrics.md", "notes": "…",
+      "active": true, "analysesCount": 31, "registeredAt": "2026-09-09T12:00:00Z"
+    }
+  ]
+}
+```
+
+- `runtime` es `null` si el servicio de inferencia no responde; el histórico se devuelve igualmente.
+- Una versión que el servicio reporte y no esté registrada **se registra sola**: de otro modo habría consultas atribuidas a una versión de la que no consta nada.
+- `PUT` da de alta o corrige las métricas de una versión, identificada por su `identifier`. Un campo omitido conserva su valor anterior.
+
+### `POST /api/users` y `PUT /api/users/{id}` — dependencia policial (RF-12)
+
+`POST` acepta además `dependency`. `PUT` edita `fullName`, `role` y `dependency`; no toca la contraseña ni el estado, que tienen su propio endpoint. `UserListItem` incorpora `dependency` y `lastAccessAt`.
+
+### Almacenamiento cifrado (RNF-06)
+
+Transparente para el contrato: `GET /api/files/{ruta}` devuelve siempre la imagen en claro. En disco, los archivos escritos con `Storage:EncryptionKey` configurada empiezan por la cabecera `RTAI1` y están cifrados con AES-256-GCM. Los archivos anteriores a la activación se siguen leyendo.
+
+### Ajuste de imagen (RF-02)
+
+No añade ningún endpoint: el recorte, el giro y la corrección de brillo y contraste ocurren en el navegador y lo que llega a `POST /api/analyses` es ya la imagen ajustada. Es deliberado — lo que se archiva en el expediente debe ser exactamente lo que se analizó, sin reinterpretación del servidor.
