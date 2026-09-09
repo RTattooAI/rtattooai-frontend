@@ -53,6 +53,14 @@
               </span>
               <button
                 type="button"
+                (click)="editImage($index)"
+                [title]="'Ajustar la fotografía ' + ($index + 1)"
+                class="absolute bottom-1 right-1 px-1.5 py-1 rounded bg-navy-950/75 text-white hover:bg-navy-900 flex items-center gap-1 text-[10px] font-medium"
+              >
+                <app-icon name="crop" [size]="11" /> Ajustar
+              </button>
+              <button
+                type="button"
                 (click)="removeImage($index)"
                 [title]="'Quitar la fotografía ' + ($index + 1)"
                 class="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white ring-1 ring-slate-200 text-slate-500 hover:text-rose-600 hover:ring-rose-200 shadow-sm"
@@ -70,7 +78,8 @@
       <p class="text-slate-600 leading-relaxed">
         Puede subir <strong>varias fotografías del mismo caso</strong> (distintas zonas del cuerpo o distintos ángulos
         del mismo tatuaje) o tomarlas con la cámara del equipo. Cada una se analiza por separado y sus resultados se
-        agrupan en un único expediente. El recorte y el realce de imagen estarán disponibles en una fase posterior.
+        agrupan en un único expediente. Con <strong>Ajustar</strong> puede girar, recortar y corregir brillo y contraste
+        de cada toma antes de enviarla.
       </p>
     </div>
 
@@ -184,3 +193,7 @@
     </div>
   </aside>
 </div>
+
+@if (editingFile(); as file) {
+  <app-image-editor [file]="file" (applied)="onImageEdited($event)" (cancelled)="closeEditor()" />
+}

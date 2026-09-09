@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
@@ -9,8 +9,27 @@ import {
   CatalogItem,
   Detection,
   ImageSource,
+  PagedResult,
   ValidationStatus
 } from '../models';
+
+/** Filtros del historial (RF-13). Las fechas van en formato yyyy-MM-dd. */
+export interface HistoryFilters {
+  from?: string;
+  to?: string;
+  status?: string;
+  q?: string;
+}
+
+function toParams(scope: 'mine' | 'all', filters: HistoryFilters): HttpParams {
+  let params = new HttpParams().set('scope', scope);
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) {
+      params = params.set(key, value);
+    }
+  }
+  return params;
+}
 
 /** El backend no garantiza que `matches` venga ordenado por similitud descendente. */
 function withSortedMatches(analysis: Analysis): Analysis {
@@ -58,9 +77,20 @@ export class AnalysisService {
     return this.http.post<AnalysisPreview>(`${environment.apiUrl}/analyses/preview`, formData);
   }
 
-  /** `scope: 'all'` solo tiene efecto para supervisor/admin; el backend lo vuelve a comprobar. */
-  list(scope: 'mine' | 'all' = 'mine'): Observable<AnalysisListItem[]> {
-    return this.http.get<AnalysisListItem[]>(`${environment.apiUrl}/analyses`, { params: { scope } });
+  /**
+   * Historial paginado. `scope: 'all'` solo tiene efecto para supervisor/admin; el
+   * backend lo vuelve a comprobar. El filtrado ocurre en el servidor, de modo que
+   * buscar no depende de cuántos registros se hayan traído.
+   */
+  list(
+    scope: 'mine' | 'all' = 'mine',
+    filters: HistoryFilters = {},
+    page = 1,
+    pageSize = 25
+  ): Observable<PagedResult<AnalysisListItem>> {
+    return this.http.get<PagedResult<AnalysisListItem>>(`${environment.apiUrl}/analyses`, {
+      params: toParams(scope, filters).set('page', page).set('pageSize', pageSize)
+    });
   }
 
   retry(id: string): Observable<Analysis> {
@@ -69,9 +99,9 @@ export class AnalysisService {
       .pipe(map(withSortedMatches));
   }
 
-  exportCsv(scope: 'mine' | 'all' = 'all'): Observable<Blob> {
+  exportCsv(scope: 'mine' | 'all' = 'all', filters: HistoryFilters = {}): Observable<Blob> {
     return this.http.get(`${environment.apiUrl}/analyses/export`, {
-      params: { scope },
+      params: toParams(scope, filters),
       responseType: 'blob'
     });
   }

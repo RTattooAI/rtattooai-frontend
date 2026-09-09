@@ -1,0 +1,158 @@
+<div class="px-4 sm:px-8 py-6 screen-enter space-y-5">
+  <div class="flex items-end justify-between gap-4 flex-wrap">
+    <div>
+      <h2 class="text-[20px] font-semibold text-navy-900 tracking-tight">Modelos de identificación</h2>
+      <p class="mt-1 text-[13px] text-slate-500 max-w-2xl">
+        Cada análisis guarda la versión del modelo con la que se resolvió. Aquí quedan registradas esas versiones y sus
+        métricas, para poder leer un resultado antiguo con las cifras que le corresponden aunque el modelo se reentrene.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="reload()"
+      class="px-3.5 py-2 text-[13px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
+    >
+      <app-icon name="refresh-cw" [size]="14" /> Actualizar
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Consultando el servicio de inferencia…</span>
+    </div>
+  } @else if (error()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ error() }}</p>
+  } @else if (inventory(); as inv) {
+    <!-- Estado en ejecución -->
+    @if (inv.runtime; as rt) {
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-5">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 grid place-items-center rounded-md bg-emerald-50 text-emerald-700"><app-icon name="cpu" [size]="15" /></div>
+          <div>
+            <h3 class="text-[14px] font-semibold text-navy-900">En ejecución</h3>
+            <p class="text-[11.5px] text-slate-500">Lo que el servicio de inferencia tiene cargado en este momento.</p>
+          </div>
+        </div>
+
+        <p class="font-mono text-[12.5px] text-navy-900 bg-slate-50 border border-slate-200 rounded-md px-3 py-2 mb-4 break-all">
+          {{ rt.modelVersion }}
+        </p>
+
+        <dl class="grid grid-cols-2 lg:grid-cols-4 gap-4 text-[12.5px]">
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Detector</dt>
+            <dd class="mt-0.5 text-slate-800 font-mono text-[12px] break-all">{{ rt.detector }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Backbone</dt>
+            <dd class="mt-0.5 text-slate-800 font-mono text-[12px] break-all">{{ rt.embedder }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Cabeza</dt>
+            <dd class="mt-0.5 text-slate-800 font-mono text-[12px] break-all">{{ rt.head ?? 'sin cabeza afinada' }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Dimensión</dt>
+            <dd class="mt-0.5 text-slate-800 tabular">{{ rt.embeddingDim }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Umbral (ρ)</dt>
+            <dd class="mt-0.5 text-slate-800 tabular">{{ rt.threshold | number: '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Margen (δ)</dt>
+            <dd class="mt-0.5 text-slate-800 tabular">{{ rt.margin | number: '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Detección conf. / IoU</dt>
+            <dd class="mt-0.5 text-slate-800 tabular">{{ rt.detConf | number: '1.2-2' }} / {{ rt.detIou | number: '1.2-2' }}</dd>
+          </div>
+          <div>
+            <dt class="text-[11px] text-slate-500 uppercase tracking-wider">Galería</dt>
+            <dd class="mt-0.5 text-slate-800 tabular">
+              {{ rt.gallerySize }} vectores · {{ rt.galleryIdentities }} identidades · {{ rt.galleryBands }} bandas
+            </dd>
+          </div>
+        </dl>
+      </div>
+    } @else {
+      <p class="px-4 py-3 rounded-md bg-amber-50 border border-amber-200 text-[13px] text-amber-800">
+        El servicio de inferencia no respondió. El histórico de versiones se muestra igualmente, pero no se puede
+        confirmar cuál está cargada ahora mismo.
+      </p>
+    }
+
+    <!-- Histórico -->
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="px-5 py-3 border-b border-slate-200">
+        <h3 class="text-[14px] font-semibold text-navy-900">Versiones registradas</h3>
+        <p class="text-[11.5px] text-slate-500 mt-0.5">
+          Las métricas provienen de la evaluación declarada en cada versión; no se recalculan solas.
+        </p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-[13px] min-w-[880px]">
+          <thead>
+            <tr class="text-left text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
+              <th class="px-4 py-2.5 font-medium">Versión</th>
+              <th class="px-4 py-2.5 font-medium text-right">mAP@0.5</th>
+              <th class="px-4 py-2.5 font-medium text-right">Top-1</th>
+              <th class="px-4 py-2.5 font-medium text-right">Top-5</th>
+              <th class="px-4 py-2.5 font-medium text-right">ρ / δ</th>
+              <th class="px-4 py-2.5 font-medium text-right">Análisis</th>
+              <th class="px-4 py-2.5 font-medium">Registrada</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (row of rows(); track row.item.id) {
+              <tr class="hover:bg-slate-50/70 align-top">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-mono text-[12px] text-navy-900">{{ row.item.identifier }}</span>
+                    @if (row.item.active) {
+                      <span class="text-[10.5px] font-medium px-2 py-0.5 rounded-full ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">
+                        en uso
+                      </span>
+                    }
+                  </div>
+                  @if (row.item.source) {
+                    <div class="text-[11px] text-slate-500 mt-1">{{ row.item.source }}</div>
+                  }
+                  @if (row.item.notes) {
+                    <div class="text-[11px] text-slate-500 mt-1 max-w-[380px]">{{ row.item.notes }}</div>
+                  }
+                </td>
+                <td class="px-4 py-3 text-right tabular text-slate-800">
+                  {{ pct(row.item.map50) != null ? (pct(row.item.map50) | number: '1.1-1') + ' %' : '—' }}
+                </td>
+                <td class="px-4 py-3 text-right tabular text-slate-800">
+                  {{ pct(row.item.top1) != null ? (pct(row.item.top1) | number: '1.1-1') + ' %' : '—' }}
+                </td>
+                <td class="px-4 py-3 text-right tabular text-slate-800">
+                  {{ pct(row.item.top5) != null ? (pct(row.item.top5) | number: '1.1-1') + ' %' : '—' }}
+                </td>
+                <td class="px-4 py-3 text-right tabular text-slate-600">
+                  @if (row.item.threshold != null && row.item.margin != null) {
+                    {{ row.item.threshold | number: '1.2-2' }} / {{ row.item.margin | number: '1.2-2' }}
+                  } @else {
+                    —
+                  }
+                </td>
+                <td class="px-4 py-3 text-right tabular font-medium text-navy-900">{{ row.item.analysesCount }}</td>
+                <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="px-4 py-12 text-center text-[13px] text-slate-500">
+                  Todavía no hay versiones registradas.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

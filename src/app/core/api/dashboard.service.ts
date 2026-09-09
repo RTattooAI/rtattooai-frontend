@@ -11,4 +11,9 @@ export class DashboardService {
   getMetrics(): Observable<DashboardMetrics> {
     return this.http.get<DashboardMetrics>(`${environment.apiUrl}/dashboard/metrics`);
   }
+
+  /** Las mismas métricas del panel en CSV (RF-17). */
+  exportCsv(): Observable<Blob> {
+    return this.http.get(`${environment.apiUrl}/dashboard/metrics/export`, { responseType: 'blob' });
+  }
 }

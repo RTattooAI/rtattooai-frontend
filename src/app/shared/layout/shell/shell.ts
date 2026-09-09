@@ -41,8 +41,10 @@ export class Shell {
   ];
 
   private readonly allGestionNav: NavLink[] = [
+    { link: '/catalog/bands', icon: 'tags', label: 'Bandas criminales', roles: ['admin', 'supervisor'] },
     { link: '/reviews', icon: 'clipboard-check', label: 'Bandeja de revisión', roles: ['admin', 'supervisor'] },
     { link: '/admin/dashboard', icon: 'layout-grid', label: 'Panel de control', roles: ['admin', 'supervisor'] },
+    { link: '/admin/models', icon: 'cpu', label: 'Modelos', roles: ['admin', 'supervisor'] },
     { link: '/admin/users', icon: 'users', label: 'Usuarios', roles: ['admin'] },
     { link: '/admin/audit', icon: 'shield-check', label: 'Auditoría', roles: ['admin'] }
   ];

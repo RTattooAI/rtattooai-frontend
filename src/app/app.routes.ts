@@ -29,6 +29,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/catalog/enroll/enroll').then((m) => m.Enroll)
       },
       {
+        path: 'catalog/bands',
+        canActivate: [roleGuard(['admin', 'supervisor'])],
+        loadComponent: () => import('./features/catalog/bands/bands').then((m) => m.Bands)
+      },
+      {
         path: 'reviews',
         canActivate: [roleGuard(['admin', 'supervisor'])],
         loadComponent: () => import('./features/reviews/reviews').then((m) => m.Reviews)
@@ -42,6 +47,11 @@ export const routes: Routes = [
         path: 'admin/users',
         canActivate: [roleGuard(['admin'])],
         loadComponent: () => import('./features/admin/users/users').then((m) => m.AdminUsers)
+      },
+      {
+        path: 'admin/models',
+        canActivate: [roleGuard(['admin', 'supervisor'])],
+        loadComponent: () => import('./features/admin/models/models').then((m) => m.AdminModels)
       },
       {
         path: 'admin/dashboard',

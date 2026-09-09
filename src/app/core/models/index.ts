@@ -6,3 +6,6 @@ export * from './user.model';
 export * from './dashboard.model';
 export * from './review.model';
 export * from './audit.model';
+export * from './paged-result.model';
+export * from './band.model';
+export * from './model-version.model';

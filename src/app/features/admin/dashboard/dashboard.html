@@ -13,19 +13,34 @@
         <p class="text-[12.5px] text-slate-500">Volumen de análisis, validaciones periciales y estado del catálogo.</p>
       </div>
       <div class="flex flex-col items-end gap-1">
-        <button
-          type="button"
-          (click)="exportCsv()"
-          [disabled]="isExporting()"
-          title="Una fila por detección: veredicto del sistema y decisión del perito"
-          class="px-3.5 py-2 text-[13px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-md flex items-center gap-1.5"
-        >
-          @if (isExporting()) {
-            <app-icon name="loader" [size]="14" class="spin" /> Generando…
-          } @else {
-            <app-icon name="download" [size]="14" /> Exportar datos de validación (CSV)
-          }
-        </button>
+        <div class="flex items-center gap-2 flex-wrap justify-end">
+          <button
+            type="button"
+            (click)="exportMetrics()"
+            [disabled]="isExportingMetrics()"
+            title="Los totales de este panel, una fila por métrica"
+            class="px-3.5 py-2 text-[13px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-md flex items-center gap-1.5"
+          >
+            @if (isExportingMetrics()) {
+              <app-icon name="loader" [size]="14" class="spin" /> Generando…
+            } @else {
+              <app-icon name="download" [size]="14" /> Exportar métricas (CSV)
+            }
+          </button>
+          <button
+            type="button"
+            (click)="exportCsv()"
+            [disabled]="isExporting()"
+            title="Una fila por detección: veredicto del sistema y decisión del perito"
+            class="px-3.5 py-2 text-[13px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-md flex items-center gap-1.5"
+          >
+            @if (isExporting()) {
+              <app-icon name="loader" [size]="14" class="spin" /> Generando…
+            } @else {
+              <app-icon name="download" [size]="14" /> Exportar datos de validación (CSV)
+            }
+          </button>
+        </div>
         @if (exportError()) {
           <span class="text-[11px] text-rose-600">{{ exportError() }}</span>
         }

@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { AnalysisService, DashboardService } from '../../../core/api';
 import { DashboardMetrics } from '../../../core/models';
 import { Icon } from '../../../shared/ui';
+import { downloadBlob } from '../../../core/utils/download-blob';
 
 interface StatusBarVm {
   label: string;
@@ -41,6 +42,7 @@ export class AdminDashboard implements OnInit {
   private readonly analysisService = inject(AnalysisService);
 
   readonly isExporting = signal(false);
+  readonly isExportingMetrics = signal(false);
   readonly exportError = signal<string | null>(null);
 
   readonly metrics = signal<DashboardMetrics | null>(null);
@@ -114,16 +116,32 @@ export class AdminDashboard implements OnInit {
     this.analysisService.exportCsv('all').subscribe({
       next: (blob) => {
         this.isExporting.set(false);
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `rtattooai-validacion-${new Date().toISOString().slice(0, 10)}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, 'rtattooai-validacion');
       },
       error: () => {
         this.isExporting.set(false);
         this.exportError.set('No se pudo generar la exportación.');
+      }
+    });
+  }
+
+  /** Los totales del propio panel, para el anexo de resultados (RF-17). */
+  exportMetrics(): void {
+    if (this.isExportingMetrics()) {
+      return;
+    }
+
+    this.isExportingMetrics.set(true);
+    this.exportError.set(null);
+
+    this.dashboardService.exportCsv().subscribe({
+      next: (blob) => {
+        this.isExportingMetrics.set(false);
+        downloadBlob(blob, 'rtattooai-metricas');
+      },
+      error: () => {
+        this.isExportingMetrics.set(false);
+        this.exportError.set('No se pudieron exportar las métricas.');
       }
     });
   }

@@ -41,14 +41,25 @@ export class AdminUsers implements OnInit {
     this.items().map((item) => ({ item, date: parseApiDate(item.createdAt) }))
   );
 
-  // Form modal state
+  // Un mismo formulario sirve para el alta y para la edicion: en edicion no se pide
+  // correo ni contrasena, que tienen su propio flujo.
   readonly showForm = signal(false);
+  readonly editingId = signal<string | null>(null);
   readonly fullName = signal('');
   readonly email = signal('');
   readonly password = signal('');
   readonly role = signal<UserRole>('analyst');
+  readonly dependency = signal('');
   readonly isSubmitting = signal(false);
   readonly formError = signal<string | null>(null);
+
+  readonly canSubmit = computed(() => {
+    if (!this.fullName().trim() || this.isSubmitting()) {
+      return false;
+    }
+    // En edicion no se toca ni el correo ni la contrasena.
+    return this.editingId() !== null || (this.email().trim() !== '' && this.password().length >= 8);
+  });
 
   readonly togglingId = signal<string | null>(null);
 
@@ -65,10 +76,23 @@ export class AdminUsers implements OnInit {
   }
 
   openForm(): void {
+    this.editingId.set(null);
     this.fullName.set('');
     this.email.set('');
     this.password.set('');
     this.role.set('analyst');
+    this.dependency.set('');
+    this.formError.set(null);
+    this.showForm.set(true);
+  }
+
+  openEdit(user: UserListItem): void {
+    this.editingId.set(user.id);
+    this.fullName.set(user.fullName);
+    this.email.set(user.email);
+    this.password.set('');
+    this.role.set(user.role);
+    this.dependency.set(user.dependency ?? '');
     this.formError.set(null);
     this.showForm.set(true);
   }
@@ -93,26 +117,41 @@ export class AdminUsers implements OnInit {
     this.role.set((event.target as HTMLSelectElement).value as UserRole);
   }
 
+  onDependencyInput(event: Event): void {
+    this.dependency.set((event.target as HTMLInputElement).value);
+  }
+
   onSubmit(): void {
-    const fullName = this.fullName().trim();
-    const email = this.email().trim();
-    const password = this.password();
-    if (!fullName || !email || password.length < 8 || this.isSubmitting()) {
+    if (!this.canSubmit()) {
       return;
     }
+
+    const fullName = this.fullName().trim();
+    const dependency = this.dependency().trim() || null;
+    const editingId = this.editingId();
 
     this.isSubmitting.set(true);
     this.formError.set(null);
 
-    this.usersService.create(fullName, email, password, this.role()).subscribe({
-      next: (created) => {
+    const request$ = editingId
+      ? this.usersService.update(editingId, fullName, this.role(), dependency)
+      : this.usersService.create(fullName, this.email().trim(), this.password(), this.role(), dependency);
+
+    request$.subscribe({
+      next: (saved) => {
         this.isSubmitting.set(false);
         this.showForm.set(false);
-        this.items.set([...this.items(), created]);
+        this.items.set(
+          editingId
+            ? this.items().map((item) => (item.id === saved.id ? saved : item))
+            : [...this.items(), saved]
+        );
       },
       error: (err) => {
         this.isSubmitting.set(false);
-        this.formError.set(err.error?.error ?? 'No se pudo crear el usuario. Intenta de nuevo.');
+        this.formError.set(
+          err.error?.error ?? (editingId ? 'No se pudo guardar el usuario.' : 'No se pudo crear el usuario. Intenta de nuevo.')
+        );
       }
     });
   }

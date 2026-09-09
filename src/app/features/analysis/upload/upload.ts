@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
-import { CameraCapture, ImageDropzone } from '../../../shared/components';
+import { CameraCapture, ImageDropzone, ImageEditor } from '../../../shared/components';
 import { Icon } from '../../../shared/ui';
 import { AnalysisService } from '../../../core/api';
 import { ImageSource } from '../../../core/models';
@@ -16,7 +16,7 @@ interface PendingImage {
 
 @Component({
   selector: 'app-upload',
-  imports: [ImageDropzone, CameraCapture, Icon],
+  imports: [ImageDropzone, CameraCapture, ImageEditor, Icon],
   templateUrl: './upload.html'
 })
 export class Upload {
@@ -35,6 +35,14 @@ export class Upload {
   readonly documentId = signal('');
   readonly notes = signal('');
 
+  /** Indice de la fotografia que se esta ajustando (RF-02), o null si el editor esta cerrado. */
+  readonly editingIndex = signal<number | null>(null);
+
+  readonly editingFile = computed(() => {
+    const index = this.editingIndex();
+    return index === null ? null : (this.images()[index]?.file ?? null);
+  });
+
   readonly imageCount = computed(() => this.images().length);
   readonly canAddMore = computed(() => this.imageCount() < MAX_IMAGES);
   readonly hasCameraShots = computed(() => this.images().some((i) => i.source === 'camara'));
@@ -52,10 +60,48 @@ export class Upload {
     this.showCamera.update((open) => !open);
   }
 
+  editImage(index: number): void {
+    this.editingIndex.set(index);
+  }
+
+  closeEditor(): void {
+    this.editingIndex.set(null);
+  }
+
+  /**
+   * Sustituye la fotografia por su version ajustada. La original se descarta aqui
+   * mismo: lo que se analice y lo que quede en el expediente deben ser la misma imagen.
+   */
+  onImageEdited(edited: File): void {
+    const index = this.editingIndex();
+    if (index === null) {
+      return;
+    }
+
+    const actuales = this.images();
+    const anterior = actuales[index];
+    if (!anterior) {
+      this.editingIndex.set(null);
+      return;
+    }
+
+    URL.revokeObjectURL(anterior.previewUrl);
+
+    this.images.set(
+      actuales.map((image, i) =>
+        i === index ? { file: edited, previewUrl: URL.createObjectURL(edited), source: image.source } : image
+      )
+    );
+    this.editingIndex.set(null);
+    this.error.set(null);
+  }
+
   removeImage(index: number): void {
     const actuales = this.images();
     URL.revokeObjectURL(actuales[index].previewUrl);
     this.images.set(actuales.filter((_, i) => i !== index));
+    // Quitar una foto desplaza los indices: el editor abierto apuntaria a otra.
+    this.editingIndex.set(null);
     this.error.set(null);
   }
 
@@ -64,6 +110,7 @@ export class Upload {
       URL.revokeObjectURL(image.previewUrl);
     }
     this.images.set([]);
+    this.editingIndex.set(null);
     this.error.set(null);
   }
 

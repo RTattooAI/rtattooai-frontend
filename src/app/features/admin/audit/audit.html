@@ -7,25 +7,92 @@
         del catálogo o de las cuentas. Es un registro de solo lectura.
       </p>
     </div>
-    <button
-      type="button"
-      (click)="reload()"
-      class="px-3.5 py-2 text-[13px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
-    >
-      <app-icon name="refresh-cw" [size]="14" /> Actualizar
-    </button>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        (click)="exportCsv()"
+        [disabled]="isExporting()"
+        title="Exporta el registro tal como está filtrado"
+        class="px-3.5 py-2 text-[13px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-md flex items-center gap-1.5"
+      >
+        @if (isExporting()) {
+          <app-icon name="loader" [size]="14" class="spin" /> Generando…
+        } @else {
+          <app-icon name="download" [size]="14" /> Exportar (CSV)
+        }
+      </button>
+      <button
+        type="button"
+        (click)="reload()"
+        class="px-3.5 py-2 text-[13px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
+      >
+        <app-icon name="refresh-cw" [size]="14" /> Actualizar
+      </button>
+    </div>
   </div>
 
   <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 mb-4">
-    <div class="relative">
-      <app-icon name="search" [size]="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
-        [value]="search()"
-        (input)="onSearchInput($event)"
-        placeholder="Filtrar por acción, usuario, recurso o dirección IP…"
-        class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-      />
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div>
+        <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Acción</span>
+        <div class="mt-1 relative">
+          <app-icon name="search" [size]="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            [value]="action()"
+            (input)="onActionInput($event)"
+            placeholder="POST /api/analyses"
+            class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </div>
+      </div>
+
+      <div>
+        <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Usuario</span>
+        <input
+          [value]="userEmail()"
+          (input)="onUserEmailInput($event)"
+          placeholder="correo@pnp.gob.pe"
+          class="mt-1 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+      </div>
+
+      <div>
+        <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Desde</span>
+        <input
+          type="date"
+          [value]="from()"
+          (change)="onFromChange($event)"
+          class="mt-1 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+      </div>
+
+      <div>
+        <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Hasta</span>
+        <input
+          type="date"
+          [value]="to()"
+          (change)="onToChange($event)"
+          class="mt-1 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+      </div>
     </div>
+
+    <div class="mt-3 flex items-center justify-between gap-3 flex-wrap">
+      <p class="text-[11.5px] text-slate-500">{{ total() }} entradas registradas</p>
+      @if (hasFilters()) {
+        <button
+          type="button"
+          (click)="clearFilters()"
+          class="px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 rounded-md flex items-center gap-1.5"
+        >
+          <app-icon name="x" [size]="12" /> Limpiar filtros
+        </button>
+      }
+    </div>
+
+    @if (exportError()) {
+      <p class="mt-2 text-[11.5px] text-rose-600">{{ exportError() }}</p>
+    }
   </div>
 
   @if (isLoading()) {
@@ -78,6 +145,39 @@
             }
           </tbody>
         </table>
+      </div>
+
+      <div class="px-4 py-3 border-t border-slate-200 flex items-center justify-between gap-3 flex-wrap text-[12.5px]">
+        <div class="text-slate-500">
+          @if (total() > 0) {
+            Mostrando <span class="font-medium text-slate-900">{{ rangeStart() }}–{{ rangeEnd() }}</span> de
+            <span class="font-medium text-slate-900">{{ total() }}</span>
+          } @else {
+            Sin resultados
+          }
+        </div>
+
+        @if (totalPages() > 1) {
+          <div class="flex items-center gap-1.5">
+            <button
+              type="button"
+              (click)="goToPage(page() - 1)"
+              [disabled]="page() <= 1"
+              class="px-2.5 py-1.5 border border-slate-200 rounded-md text-slate-600 hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+            >
+              <app-icon name="chevron-left" [size]="13" /> Anterior
+            </button>
+            <span class="px-2 text-slate-500 tabular">Página {{ page() }} de {{ totalPages() }}</span>
+            <button
+              type="button"
+              (click)="goToPage(page() + 1)"
+              [disabled]="page() >= totalPages()"
+              class="px-2.5 py-1.5 border border-slate-200 rounded-md text-slate-600 hover:bg-slate-50 disabled:opacity-40 flex items-center gap-1"
+            >
+              Siguiente <app-icon name="chevron-right" [size]="13" />
+            </button>
+          </div>
+        }
       </div>
     </div>
   }

@@ -17,7 +17,8 @@ import {
   LucideCalendar, LucideFilter, LucideFileText, LucideMoreVertical, LucideDatabase,
   LucideTags, LucidePlusCircle, LucidePencil, LucidePower,
   LucideRefreshCw, LucideUser, LucideCheck, LucideClipboardCheck, LucideShieldCheck, LucideKeyRound,
-  LucideCamera, LucideSwitchCamera, LucideRadio, LucideZap, LucideTrash2
+  LucideCamera, LucideSwitchCamera, LucideRadio, LucideZap, LucideTrash2,
+  LucideSun, LucideContrast, LucideSlidersHorizontal, LucideChevronDown, LucideBoxes, LucideScissors
 } from '@lucide/angular';
 
 import { routes } from './app.routes';
@@ -43,7 +44,8 @@ export const appConfig: ApplicationConfig = {
       LucideCalendar, LucideFilter, LucideFileText, LucideMoreVertical, LucideDatabase,
       LucideTags, LucidePlusCircle, LucidePencil, LucidePower,
       LucideRefreshCw, LucideUser, LucideCheck, LucideClipboardCheck, LucideShieldCheck, LucideKeyRound,
-      LucideCamera, LucideSwitchCamera, LucideRadio, LucideZap, LucideTrash2
+      LucideCamera, LucideSwitchCamera, LucideRadio, LucideZap, LucideTrash2,
+  LucideSun, LucideContrast, LucideSlidersHorizontal, LucideChevronDown, LucideBoxes, LucideScissors
     )
   ]
 };

@@ -1,0 +1,159 @@
+<div class="fixed inset-0 z-50 bg-navy-950/70 backdrop-blur-sm grid place-items-center p-4 sm:p-6">
+  <div class="bg-white rounded-xl shadow-pop w-full max-w-[860px] max-h-[92vh] overflow-auto">
+    <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white z-10">
+      <div>
+        <h3 class="text-[16px] font-semibold text-navy-900">Ajustar fotografía</h3>
+        <p class="text-[12px] text-slate-500 mt-0.5">
+          Encuadre y exposición. El archivo original no se modifica: el análisis recibe una copia ajustada.
+        </p>
+      </div>
+      <button (click)="cancel()" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded"><app-icon name="x" [size]="16" /></button>
+    </div>
+
+    <div class="p-6 space-y-5">
+      @if (error()) {
+        <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12.5px] text-rose-700" role="alert">{{ error() }}</p>
+      }
+
+      <!-- Lienzo con la selección de recorte encima -->
+      <div class="bg-slate-100 rounded-lg border border-slate-200 p-3 grid place-items-center min-h-[240px]">
+        @if (!isReady()) {
+          <div class="flex items-center gap-2 text-slate-500 text-[13px] py-12">
+            <app-icon name="loader" [size]="16" class="spin" /> Cargando fotografía…
+          </div>
+        }
+
+        <div
+          #surface
+          class="relative touch-none select-none"
+          [class.hidden]="!isReady()"
+          (pointerdown)="onPointerDown($event)"
+          (pointermove)="onPointerMove($event)"
+          (pointerup)="onPointerUp($event)"
+        >
+          <canvas #canvas class="block max-w-full h-auto rounded cursor-crosshair"></canvas>
+
+          @if (cropStyle(); as box) {
+            <div
+              class="absolute border-2 border-accent bg-accent/10 pointer-events-none"
+              [style.left]="box.left"
+              [style.top]="box.top"
+              [style.width]="box.width"
+              [style.height]="box.height"
+            ></div>
+          }
+
+          @if (dragRect(); as drag) {
+            <div
+              class="absolute border-2 border-dashed border-white bg-navy-900/20 pointer-events-none"
+              [style.left.px]="drag.left"
+              [style.top.px]="drag.top"
+              [style.width.px]="drag.width"
+              [style.height.px]="drag.height"
+            ></div>
+          }
+        </div>
+      </div>
+
+      <p class="text-[11.5px] text-slate-500 flex items-start gap-1.5">
+        <app-icon name="info" [size]="13" class="mt-0.5 shrink-0" />
+        Arrastre sobre la imagen para seleccionar la zona del tatuaje. Recortar el fondo suele mejorar la detección,
+        pero recortar demasiado ajustado puede dejar fuera parte del patrón.
+      </p>
+
+      <!-- Controles -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div class="space-y-3">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Orientación y encuadre</span>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              (click)="rotateLeft()"
+              class="px-3 py-2 text-[12.5px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
+            >
+              <app-icon name="rotate-ccw" [size]="14" /> Girar izquierda
+            </button>
+            <button
+              type="button"
+              (click)="rotateRight()"
+              class="px-3 py-2 text-[12.5px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
+            >
+              <app-icon name="rotate-cw" [size]="14" /> Girar derecha
+            </button>
+            <button
+              type="button"
+              (click)="clearCrop()"
+              [disabled]="!crop()"
+              class="px-3 py-2 text-[12.5px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-40 rounded-md flex items-center gap-1.5"
+            >
+              <app-icon name="square-dashed" [size]="14" /> Quitar recorte
+            </button>
+          </div>
+          @if (rotation() !== 0) {
+            <p class="text-[11px] text-slate-500">Girar reinicia el recorte, porque estaba definido sobre la orientación anterior.</p>
+          }
+        </div>
+
+        <div class="space-y-4">
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider flex items-center justify-between">
+              <span class="flex items-center gap-1.5"><app-icon name="sun" [size]="13" /> Brillo</span>
+              <span class="tabular text-slate-500">{{ brightness() }} %</span>
+            </span>
+            <input
+              type="range"
+              min="50"
+              max="150"
+              step="1"
+              [value]="brightness()"
+              (input)="onBrightnessInput($event)"
+              class="mt-2 w-full accent-accent"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider flex items-center justify-between">
+              <span class="flex items-center gap-1.5"><app-icon name="contrast" [size]="13" /> Contraste</span>
+              <span class="tabular text-slate-500">{{ contrast() }} %</span>
+            </span>
+            <input
+              type="range"
+              min="50"
+              max="150"
+              step="1"
+              [value]="contrast()"
+              (input)="onContrastInput($event)"
+              class="mt-2 w-full accent-accent"
+            />
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-between gap-2 bg-slate-50 sticky bottom-0">
+      <button
+        type="button"
+        (click)="reset()"
+        [disabled]="!hasChanges()"
+        class="px-3 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-200 disabled:opacity-40 rounded-md flex items-center gap-1.5"
+      >
+        <app-icon name="undo-2" [size]="14" /> Deshacer todo
+      </button>
+
+      <div class="flex items-center gap-2">
+        <button (click)="cancel()" class="px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-200 rounded-md font-medium">Cancelar</button>
+        <button
+          (click)="apply()"
+          [disabled]="!isReady() || isSaving()"
+          class="px-4 py-2 text-[13px] text-white bg-accent hover:bg-accent-600 disabled:bg-slate-300 rounded-md font-semibold shadow-card flex items-center gap-2"
+        >
+          @if (isSaving()) {
+            <app-icon name="loader" [size]="14" class="spin" /> Aplicando…
+          } @else {
+            <app-icon name="check" [size]="14" /> Usar esta versión
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
