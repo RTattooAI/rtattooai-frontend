@@ -134,6 +134,10 @@ function metaForUrl(url: string): ScreenMeta {
   if (url.startsWith('/history')) {
     return { title: 'Historial de consultas', breadcrumb: ['Inicio', 'Historial'] };
   }
+  // Antes que /catalog, que tambien casaria con esta ruta.
+  if (url.startsWith('/catalog/bands')) {
+    return { title: 'Bandas criminales', breadcrumb: ['Inicio', 'Gestión', 'Bandas'] };
+  }
   if (url.startsWith('/catalog')) {
     return { title: 'Catálogo de tatuajes', breadcrumb: ['Inicio', 'Gestión', 'Catálogo'] };
   }
@@ -145,6 +149,9 @@ function metaForUrl(url: string): ScreenMeta {
   }
   if (url.startsWith('/admin/audit')) {
     return { title: 'Registro de auditoría', breadcrumb: ['Inicio', 'Gestión', 'Auditoría'] };
+  }
+  if (url.startsWith('/admin/models')) {
+    return { title: 'Modelos de identificación', breadcrumb: ['Inicio', 'Gestión', 'Modelos'] };
   }
   if (url.startsWith('/reviews')) {
     return { title: 'Bandeja de revisión', breadcrumb: ['Inicio', 'Gestión', 'Revisión'] };
