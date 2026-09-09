@@ -34,6 +34,21 @@
           }
         </select>
       </div>
+
+      @if (canSupervise) {
+        <div>
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Alcance</span>
+          <button
+            type="button"
+            (click)="toggleScope()"
+            class="mt-1 w-full px-3 py-2 text-[13px] border rounded-md flex items-center justify-center gap-1.5 transition-colors"
+            [class]="scope() === 'all' ? 'bg-navy-50 border-navy-200 text-navy-800 font-medium' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'"
+          >
+            <app-icon [name]="scope() === 'all' ? 'users' : 'user'" [size]="14" />
+            {{ scope() === 'all' ? 'Todos los analistas' : 'Solo mis consultas' }}
+          </button>
+        </div>
+      }
     </div>
   </div>
 
@@ -63,7 +78,17 @@
               <tr class="hover:bg-slate-50/70 cursor-pointer" (click)="openAnalysis(row.item.id)">
                 <td class="px-5 py-3">
                   <div class="flex items-center gap-3">
+                    <div class="relative w-9">
                     <app-tattoo-thumb [id]="row.item.id" [imageUrl]="row.item.thumbnailUrl" [size]="36" />
+                    @if (row.item.imageCount > 1) {
+                      <span
+                        class="absolute -bottom-1 -right-1 min-w-[17px] h-[17px] px-1 grid place-items-center rounded-full bg-navy-800 text-white text-[9px] font-medium ring-2 ring-white"
+                        [title]="row.item.imageCount + ' fotografías en este análisis'"
+                      >
+                        {{ row.item.imageCount }}
+                      </span>
+                    }
+                  </div>
                     <span class="font-mono text-[12px] text-navy-900 font-medium truncate max-w-[180px]">{{ row.item.id }}</span>
                   </div>
                 </td>

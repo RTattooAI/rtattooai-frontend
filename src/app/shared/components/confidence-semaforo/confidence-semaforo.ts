@@ -1,9 +1,11 @@
 import { Component, computed, input } from '@angular/core';
 import { Verdict } from '../../../core/models';
+import { SIMILARITY_STRONG } from '../../ui/confidence';
 
 type SemaforoLevel = 'rojo' | 'amarillo' | 'verde';
 
-const GREEN_THRESHOLD = 0.75;
+/** Mismo corte que la etiqueta "Alta" de cada candidato: una sola escala en pantalla. */
+const GREEN_THRESHOLD = SIMILARITY_STRONG / 100;
 
 interface LevelStyle {
   label: string;

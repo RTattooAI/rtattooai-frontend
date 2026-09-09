@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { DatePipe } from '@angular/common';
 import { AnalysisService } from '../../core/api';
+import { AuthService } from '../../core/auth';
 import { AnalysisListItem, AnalysisStatus } from '../../core/models';
 import { parseApiDate } from '../../core/utils/parse-api-date';
 import { Icon, TattooThumb, ConfidenceBand, confidenceBand } from '../../shared/ui';
@@ -33,7 +34,12 @@ interface HistoryRow {
 })
 export class History implements OnInit {
   private readonly analysisService = inject(AnalysisService);
+  private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+
+  /** Supervisor y admin pueden ver el historial de todos los analistas. */
+  readonly canSupervise = this.authService.canSupervise();
+  readonly scope = signal<'mine' | 'all'>('mine');
 
   readonly items = signal<AnalysisListItem[]>([]);
   readonly isLoading = signal(true);
@@ -42,10 +48,11 @@ export class History implements OnInit {
   readonly search = signal('');
   readonly statusFilter = signal<AnalysisStatus | 'all'>('all');
 
+  // Sin "Procesando": el analisis se resuelve dentro de la misma peticion, de modo
+  // que ese estado nunca llega a listarse y el filtro siempre saldria vacio.
   readonly statusOptions: { value: AnalysisStatus | 'all'; label: string }[] = [
     { value: 'all', label: 'Todos' },
     { value: 'completed', label: 'Completado' },
-    { value: 'processing', label: 'Procesando' },
     { value: 'no_detection', label: 'Sin detección' },
     { value: 'failed', label: 'Falló' }
   ];
@@ -76,7 +83,18 @@ export class History implements OnInit {
   });
 
   ngOnInit(): void {
-    this.analysisService.list().subscribe({
+    this.load();
+  }
+
+  toggleScope(): void {
+    this.scope.set(this.scope() === 'mine' ? 'all' : 'mine');
+    this.load();
+  }
+
+  private load(): void {
+    this.isLoading.set(true);
+    this.error.set(null);
+    this.analysisService.list(this.scope()).subscribe({
       next: (items) => {
         this.items.set(items);
         this.isLoading.set(false);

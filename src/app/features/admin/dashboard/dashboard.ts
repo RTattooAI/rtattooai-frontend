@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
-import { DashboardService } from '../../../core/api';
+import { AnalysisService, DashboardService } from '../../../core/api';
 import { DashboardMetrics } from '../../../core/models';
 import { Icon } from '../../../shared/ui';
 
@@ -38,6 +38,10 @@ const VALIDATION_COLORS: Record<string, string> = {
 })
 export class AdminDashboard implements OnInit {
   private readonly dashboardService = inject(DashboardService);
+  private readonly analysisService = inject(AnalysisService);
+
+  readonly isExporting = signal(false);
+  readonly exportError = signal<string | null>(null);
 
   readonly metrics = signal<DashboardMetrics | null>(null);
   readonly isLoading = signal(true);
@@ -94,6 +98,35 @@ export class AdminDashboard implements OnInit {
   });
 
   readonly maxTopBandCount = computed(() => Math.max(...(this.metrics()?.topBands.map((b) => b.count) ?? [0]), 1));
+
+  /**
+   * Descarga una fila por deteccion (veredicto del sistema frente a decision del
+   * perito): es la fuente de las tablas de resultados de la validacion.
+   */
+  exportCsv(): void {
+    if (this.isExporting()) {
+      return;
+    }
+
+    this.isExporting.set(true);
+    this.exportError.set(null);
+
+    this.analysisService.exportCsv('all').subscribe({
+      next: (blob) => {
+        this.isExporting.set(false);
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `rtattooai-validacion-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.isExporting.set(false);
+        this.exportError.set('No se pudo generar la exportación.');
+      }
+    });
+  }
 
   ngOnInit(): void {
     this.dashboardService.getMetrics().subscribe({

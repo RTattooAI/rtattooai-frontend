@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ImageDropzone } from '../../../shared/components';
 import { Icon, TattooThumb } from '../../../shared/ui';
 import { CatalogService } from '../../../core/api';
+import { AuthService } from '../../../core/auth';
 import { CatalogItem } from '../../../core/models';
 import { parseApiDate } from '../../../core/utils/parse-api-date';
 
@@ -19,6 +20,16 @@ interface CatalogRow {
 })
 export class Enroll implements OnInit {
   private readonly catalogService = inject(CatalogService);
+  private readonly authService = inject(AuthService);
+
+  /**
+   * Solo supervision puede alterar el catalogo de referencia: quien lo modifica
+   * cambia el resultado de cualquier analisis posterior. El backend lo impone;
+   * aqui simplemente no se ofrecen acciones que el usuario no podria completar.
+   */
+  readonly canManage = this.authService.canSupervise();
+
+  readonly validatingIds = signal<Set<string>>(new Set());
 
   readonly items = signal<CatalogItem[]>([]);
   readonly isLoading = signal(true);
@@ -131,6 +142,40 @@ export class Enroll implements OnInit {
         });
       }
     });
+  }
+
+  isValidating(catalogId: string): boolean {
+    return this.validatingIds().has(catalogId);
+  }
+
+  /** Compuerta de revision humana del catalogo. */
+  toggleValidated(item: CatalogItem): void {
+    if (!this.canManage || this.isValidating(item.catalogId)) {
+      return;
+    }
+
+    this.validatingIds.set(new Set([...this.validatingIds(), item.catalogId]));
+    this.assignErrors.set({ ...this.assignErrors(), [item.catalogId]: '' });
+
+    this.catalogService.setValidated(item.catalogId, !item.validated).subscribe({
+      next: (updated) => {
+        this.clearValidating(item.catalogId);
+        this.items.set(this.items().map((i) => (i.catalogId === item.catalogId ? updated : i)));
+      },
+      error: (err) => {
+        this.clearValidating(item.catalogId);
+        this.assignErrors.set({
+          ...this.assignErrors(),
+          [item.catalogId]: err.error?.error ?? 'No se pudo cambiar la validación.'
+        });
+      }
+    });
+  }
+
+  private clearValidating(catalogId: string): void {
+    const next = new Set(this.validatingIds());
+    next.delete(catalogId);
+    this.validatingIds.set(next);
   }
 
   onSubmit(): void {

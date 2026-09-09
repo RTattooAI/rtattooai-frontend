@@ -12,6 +12,8 @@ export interface Match {
 
 export interface Detection {
   id: string;
+  /** Imagen del análisis en la que aparece esta detección. */
+  imageId: string;
   bbox: BBox;
   confidence: number;
   verdict: Verdict;

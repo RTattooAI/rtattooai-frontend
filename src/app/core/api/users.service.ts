@@ -19,4 +19,8 @@ export class UsersService {
   setActive(id: string, active: boolean): Observable<UserListItem> {
     return this.http.patch<UserListItem>(`${environment.apiUrl}/users/${id}/status`, { active });
   }
+
+  resetPassword(id: string, password: string): Observable<UserListItem> {
+    return this.http.patch<UserListItem>(`${environment.apiUrl}/users/${id}/password`, { password });
+  }
 }

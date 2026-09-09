@@ -7,6 +7,31 @@
   } @else if (loadError()) {
     <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ loadError() }}</p>
   } @else if (metrics(); as m) {
+    <div class="flex items-end justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="text-[18px] font-semibold text-navy-900 tracking-tight">Panel de control</h2>
+        <p class="text-[12.5px] text-slate-500">Volumen de análisis, validaciones periciales y estado del catálogo.</p>
+      </div>
+      <div class="flex flex-col items-end gap-1">
+        <button
+          type="button"
+          (click)="exportCsv()"
+          [disabled]="isExporting()"
+          title="Una fila por detección: veredicto del sistema y decisión del perito"
+          class="px-3.5 py-2 text-[13px] font-medium text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-md flex items-center gap-1.5"
+        >
+          @if (isExporting()) {
+            <app-icon name="loader" [size]="14" class="spin" /> Generando…
+          } @else {
+            <app-icon name="download" [size]="14" /> Exportar datos de validación (CSV)
+          }
+        </button>
+        @if (exportError()) {
+          <span class="text-[11px] text-rose-600">{{ exportError() }}</span>
+        }
+      </div>
+    </div>
+
     <!-- Summary strip -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
       <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">

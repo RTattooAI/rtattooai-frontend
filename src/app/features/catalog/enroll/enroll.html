@@ -49,12 +49,19 @@
         class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
       />
     </div>
-    <button
-      (click)="openForm()"
-      class="px-3.5 py-2 text-[13px] font-medium text-white bg-accent hover:bg-accent-600 rounded-md flex items-center gap-1.5 shadow-card"
-    >
-      <app-icon name="plus" [size]="14" [strokeWidth]="2.5" /> Nuevo tatuaje
-    </button>
+    @if (canManage) {
+      <button
+        (click)="openForm()"
+        class="px-3.5 py-2 text-[13px] font-medium text-white bg-accent hover:bg-accent-600 rounded-md flex items-center gap-1.5 shadow-card"
+      >
+        <app-icon name="plus" [size]="14" [strokeWidth]="2.5" /> Nuevo tatuaje
+      </button>
+    } @else {
+      <span class="text-[12px] text-slate-500 flex items-center gap-1.5">
+        <app-icon name="lock" [size]="13" class="text-slate-400" />
+        Solo consulta: el catálogo lo gestiona un supervisor
+      </span>
+    }
   </div>
 
   <!-- Table -->
@@ -87,6 +94,16 @@
                 <td class="px-4 py-3 font-medium">
                   @if (row.item.band) {
                     <span class="text-slate-800">{{ row.item.band }}</span>
+                  } @else if (!canManage) {
+                    <span class="text-[12px] text-slate-400 italic">Sin banda asignada</span>
+                    @if (row.item.originAnalysisId) {
+                      <a
+                        [routerLink]="['/results', row.item.originAnalysisId]"
+                        class="text-[11px] text-accent hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <app-icon name="file-text" [size]="11" /> Ver caso de origen
+                      </a>
+                    }
                   } @else {
                     <div class="flex items-center gap-1.5 min-w-[200px]">
                       <input
@@ -122,10 +139,26 @@
                 </td>
                 <td class="px-4 py-3 text-slate-600">{{ row.item.source }}</td>
                 <td class="px-4 py-3">
-                  @if (row.item.validated) {
+                  @if (canManage) {
+                    <button
+                      type="button"
+                      (click)="toggleValidated(row.item)"
+                      [disabled]="isValidating(row.item.catalogId)"
+                      [title]="row.item.validated ? 'Quitar la validación' : 'Confirmar esta entrada del catálogo'"
+                      class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 flex items-center gap-1 disabled:opacity-60"
+                      [class]="row.item.validated ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100'"
+                    >
+                      @if (isValidating(row.item.catalogId)) {
+                        <app-icon name="loader" [size]="10" class="spin" />
+                      } @else {
+                        <app-icon [name]="row.item.validated ? 'check' : 'clock'" [size]="10" />
+                      }
+                      {{ row.item.validated ? 'Validado' : 'Pendiente' }}
+                    </button>
+                  } @else if (row.item.validated) {
                     <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">Validado</span>
                   } @else {
-                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-amber-50 text-amber-700 ring-amber-200">En revisión</span>
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-amber-50 text-amber-700 ring-amber-200">Pendiente</span>
                   }
                 </td>
                 <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy' }}</td>

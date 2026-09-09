@@ -22,4 +22,8 @@ export class CatalogService {
   assignBand(catalogId: string, band: string): Observable<CatalogItem> {
     return this.http.patch<CatalogItem>(`${environment.apiUrl}/catalog/${catalogId}/band`, { band });
   }
+
+  setValidated(catalogId: string, validated: boolean): Observable<CatalogItem> {
+    return this.http.patch<CatalogItem>(`${environment.apiUrl}/catalog/${catalogId}/validation`, { validated });
+  }
 }

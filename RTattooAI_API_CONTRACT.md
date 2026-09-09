@@ -244,3 +244,178 @@ Activa o desactiva una cuenta (un usuario inactivo no puede iniciar sesión). **
 - Metadatos (banda, procedencia, autor, fecha, validación) → SQL Server, para trazabilidad y auditoría.
 - Concurrencia: enrolamiento es de baja frecuencia; last-write-wins sobre el índice persistido es aceptable para la demo.
 - Escala de producción (narrativa de tesis, no se construye ahora): Azure AI Search vectorial o pgvector.
+
+---
+
+## E. Endpoints añadidos en el endurecimiento (setiembre 2026)
+
+Incorporados al preparar la validación del OE4 y el despliegue en infraestructura propia. Detalle y motivación en `docs/RTattooAI_ENDURECIMIENTO.md`.
+
+### `POST /api/analyses/{id}/retry`
+Reprocesa un análisis en estado `failed` reutilizando la imagen ya almacenada.
+**Response 200:** objeto `Analysis` actualizado.
+**400** si el análisis no está en estado `failed` o no se pudo recuperar su imagen. **404** si no existe o no pertenece al usuario (los roles `supervisor` y `admin` pueden reintentar cualquiera).
+
+### `GET /api/analyses?scope=all`
+`scope=all` devuelve el historial de todos los analistas. Solo surte efecto con rol `supervisor` o `admin`; para el resto se ignora y se devuelve el historial propio. Los listados devuelven como máximo 200 registros, del más reciente al más antiguo.
+
+### `GET /api/analyses/export?scope=all|mine`
+Exporta una fila por detección en CSV (UTF-8 con BOM). **Requiere rol `supervisor` o `admin`.**
+Columnas: `analisis_id, codigo, fecha_utc, analista, estado, tiempo_ms, version_modelo, persona, documento, deteccion_id, confianza, veredicto, banda_top1, similitud_top1, estado_validacion, observaciones, fecha_validacion_utc`.
+
+### `GET /api/reviews`
+Detecciones en estado `review` pendientes de segunda revisión. **Requiere rol `supervisor` o `admin`.**
+**Response 200:**
+```json
+[
+  {
+    "analysisId": "guid",
+    "detectionId": "guid",
+    "thumbnailUrl": "/api/files/consultas/.../thumbnail.png?exp=...&sig=...",
+    "confidence": 0.91,
+    "verdict": "match",
+    "topBand": "Los Pulpos",
+    "topSimilarity": 0.88,
+    "notes": "Requiere contraste con archivo fotográfico",
+    "requestedBy": "Analista 1",
+    "requestedAt": "2026-09-03T14:00:00Z",
+    "personName": null,
+    "documentId": null
+  }
+]
+```
+
+### `PATCH /api/catalog/{catalogId}/validation`
+Confirma o revierte la validación de una entrada del catálogo. **Requiere rol `supervisor` o `admin`.**
+**Request:** `{ "validated": true }`
+**Response 200:** `CatalogItem` actualizado. **400** si se intenta validar una entrada sin banda asignada. **404** si el `catalogId` no existe.
+
+### `GET /api/audit?limit=100`
+Registro de auditoría, del más reciente al más antiguo (`limit` entre 1 y 500). **Requiere rol `admin`.**
+**Response 200:**
+```json
+[
+  {
+    "id": "guid",
+    "userId": "guid",
+    "userEmail": "analista@pnp.gob.pe",
+    "userRole": "analyst",
+    "action": "POST /api/analyses",
+    "resource": "id=guid",
+    "statusCode": 201,
+    "ipAddress": "190.0.0.1",
+    "occurredAt": "2026-09-03T14:00:00Z"
+  }
+]
+```
+
+### `PATCH /api/users/{id}/password`
+Restablece la contraseña de una cuenta. **Requiere rol `admin`.**
+**Request:** `{ "password": "..." }` · **Response 200:** objeto `User`. **400** si no cumple la política. **404** si el usuario no existe.
+
+### `POST /api/auth/change-password`
+Cambio de contraseña del usuario autenticado. Limitado a 5 intentos por minuto y por IP.
+**Request:** `{ "currentPassword": "...", "newPassword": "..." }`
+**Response 204.** **400** si la contraseña actual no coincide o la nueva no cumple la política.
+
+### `GET /api/files/{ruta}?exp={unix}&sig={hmac}`
+Entrega las imágenes almacenadas. **No requiere token**: la autorización es la firma HMAC-SHA256 con caducidad que genera el backend, porque un `<img src>` no puede enviar cabeceras. Responde `404` de forma indistinta ante firma inválida, caducada, ruta no permitida o archivo inexistente.
+
+### Cambios en endpoints existentes
+
+- **Control de acceso.** `POST /api/catalog` y `PATCH /api/catalog/{catalogId}/band` pasan a requerir rol `supervisor` o `admin`. `GET /api/catalog` sigue disponible para cualquier usuario autenticado, y `POST /api/analyses/{id}/enroll` continúa disponible para el analista (crea entradas sin banda).
+- **Alcance por rol.** `GET /api/analyses/{id}` y `PATCH .../validation` permiten a `supervisor` y `admin` operar sobre análisis de cualquier analista; para el rol `analyst` el comportamiento no cambia (404 ante un análisis ajeno).
+- **Validación de imágenes.** `POST /api/analyses` y `POST /api/catalog` verifican la firma real del archivo (JPG/PNG) y un máximo de 80 MP, además del tipo declarado y los 10 MB. El tipo detectado sustituye al declarado.
+- **Sesiones.** Un token de una cuenta desactivada deja de ser válido de inmediato (401), sin esperar a su caducidad.
+- **Política de contraseñas.** Mínimo 8 caracteres combinando letras y números; se rechazan contraseñas comunes o que contengan el correo del usuario.
+- **URL de imágenes.** `imageUrl`, `thumbnailUrl` y `referenceImageUrl` son rutas relativas firmadas (`/api/files/...`) cuando el almacenamiento es local. Con `Storage:Provider=azure` se mantiene el comportamiento anterior con SAS.
+- **Límite de peticiones.** 240 por minuto y por IP en toda la API; 5 por minuto en inicio de sesión y cambio de contraseña. Al excederlo se responde 429.
+
+---
+
+## F. Análisis con varias imágenes y captura por cámara (setiembre 2026)
+
+Un caso real necesita varias tomas del mismo detenido: distintas zonas del cuerpo o distintos ángulos del mismo tatuaje. El análisis pasa a agrupar todas esas fotografías, cada una con su propio procesamiento.
+
+### Cambios en `POST /api/analyses`
+
+**Request:** `multipart/form-data`
+- `images`: el campo se repite una vez por fotografía (entre 1 y 10). Se sigue aceptando `image` como nombre alternativo, por compatibilidad con la versión de una sola imagen.
+- `source`: `archivo` (por defecto) o `camara`, según de dónde provengan las tomas.
+- `personName`, `documentId`, `notes`: sin cambios.
+
+Formatos admitidos: **JPG, PNG y WEBP** (RF-01), hasta 10 MB y 80 MP por imagen. Si alguna imagen es inválida o se superan las 10, se responde **400** y **no se crea el análisis**: nunca queda un caso a medias.
+
+### Cambios en el esquema `Analysis`
+
+```json
+{
+  "id": "guid",
+  "status": "completed",
+  "imageUrl": "/api/files/consultas/.../original.jpg?exp=...&sig=...",
+  "thumbnailUrl": "/api/files/...",
+  "imageWidth": 1080,
+  "imageHeight": 1920,
+  "images": [
+    {
+      "id": "guid-imagen",
+      "order": 0,
+      "imageUrl": "/api/files/...",
+      "thumbnailUrl": "/api/files/...",
+      "width": 1080,
+      "height": 1920,
+      "status": "completed",
+      "modelVersion": "yolov8m + dinov2-vits14 + head-v1",
+      "processingMs": 980,
+      "source": "archivo"
+    }
+  ],
+  "detections": [
+    { "id": "guid-deteccion", "imageId": "guid-imagen", "bbox": { "x": 120, "y": 340, "width": 200, "height": 180 }, "...": "..." }
+  ]
+}
+```
+
+- `images[]`: una entrada por fotografía, ordenada por `order`. `status` por imagen: `completed` | `no_detection` | `failed`. `source`: `archivo` | `camara`.
+- `detections[].imageId`: **nuevo y obligatorio**. Indica en qué fotografía aparece la detección; sin él no se puede dibujar la caja ni recortar el enrolamiento sobre la imagen correcta.
+- `imageUrl`, `thumbnailUrl`, `imageWidth` y `imageHeight` del nivel raíz son la **portada**: una copia de la primera imagen. Se conservan por compatibilidad; el detalle está en `images`.
+- `status` del análisis agrega el de sus imágenes: `completed` si alguna tiene detecciones, `no_detection` si ninguna las tiene pero alguna se procesó, `failed` solo si todas fallaron.
+
+### Cambios en `GET /api/analyses` (historial)
+
+Cada elemento incorpora `imageCount` (entero ≥ 1), el número de fotografías del análisis.
+
+### Cambios en `POST /api/analyses/{id}/retry`
+
+Reprocesa **solo las imágenes en estado `failed`**, reutilizando las ya almacenadas. **400** si ninguna imagen del análisis falló.
+
+### `POST /api/analyses/preview`
+
+Modo asistido en vivo. Analiza un fotograma y responde **sin persistir absolutamente nada**: ni consulta, ni imagen almacenada, ni registro de auditoría. Es una ayuda de encuadre, no una consulta con valor probatorio.
+
+**Request:** `multipart/form-data` con `image` (un fotograma; el cliente lo envía reducido).
+**Response 200:**
+```json
+{
+  "imageWidth": 640,
+  "imageHeight": 480,
+  "modelVersion": "yolov8m + dinov2-vits14 + head-v1",
+  "processingMs": 984,
+  "detections": [
+    {
+      "bbox": { "x": 120, "y": 340, "width": 200, "height": 180 },
+      "confidence": 0.91,
+      "verdict": "match",
+      "matches": [ { "catalogId": "tat_00123", "band": "Los Pulpos", "similarity": 0.88, "referenceImageUrl": null } ]
+    }
+  ],
+  "disclaimer": "Vista asistida en vivo: resultado provisional que NO queda registrado. …"
+}
+```
+Las detecciones **no tienen identificador** porque no existen en la base de datos: no pueden validarse ni enrolarse. **503** si el servicio de inferencia no responde, para que el cliente omita ese fotograma y siga.
+
+**Límite de peticiones:** política propia de 90 por minuto y por IP, más alta que la de una acción normal porque el cliente la invoca en bucle. Con una latencia de inferencia cercana a un segundo, el ritmo real ronda un fotograma por segundo.
+
+### Cabeceras
+
+`Permissions-Policy` pasa de `camera=()` a **`camera=(self)`** en la API y en nginx: con `camera=()` el navegador bloquea `getUserMedia` aunque el usuario conceda el permiso. El micrófono y la ubicación siguen bloqueados. La CSP del frontend añade `media-src 'self' blob:` para el visor de la cámara.

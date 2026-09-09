@@ -1,0 +1,157 @@
+<div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+  <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-3">
+    <h3 class="text-[13px] font-semibold text-navy-900 flex items-center gap-1.5">
+      <app-icon name="camera" [size]="14" class="text-slate-400" /> Captura con cámara
+    </h3>
+    <div class="flex items-center gap-1">
+      @if (isActive() && hasMultipleCameras()) {
+        <button
+          type="button"
+          (click)="switchCamera()"
+          title="Cambiar entre cámara frontal y posterior"
+          class="px-2 py-1 rounded text-slate-500 hover:bg-slate-100"
+        >
+          <app-icon name="switch-camera" [size]="14" />
+        </button>
+      }
+      <button type="button" (click)="stop()" title="Cerrar la cámara" class="px-2 py-1 rounded text-slate-500 hover:bg-slate-100">
+        <app-icon name="x" [size]="14" />
+      </button>
+    </div>
+  </div>
+
+  <!-- Visor -->
+  <div class="relative bg-navy-950">
+    <video #video playsinline muted class="w-full max-h-[60vh] object-contain block"></video>
+
+    @if (isActive() && liveMode()) {
+      <!-- Cajas del modo asistido, superpuestas sobre el vídeo -->
+      @for (box of liveBoxes(); track $index) {
+        <div
+          class="absolute pointer-events-none border-2 rounded-sm"
+          [style.left]="box.left"
+          [style.top]="box.top"
+          [style.width]="box.width"
+          [style.height]="box.height"
+          [style.borderColor]="box.color"
+        >
+          <span
+            class="absolute -top-5 left-0 text-[10px] font-medium px-1.5 py-0.5 rounded whitespace-nowrap text-white"
+            [style.background]="box.color"
+          >
+            {{ box.label }}
+          </span>
+        </div>
+      }
+
+      <div class="absolute top-3 left-3 flex items-center gap-1.5 bg-navy-950/80 backdrop-blur ring-1 ring-white/10 rounded px-2 py-1">
+        <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+        <span class="text-[10px] uppercase tracking-wider text-white font-medium">Asistencia en vivo</span>
+      </div>
+
+      @if (liveResult(); as result) {
+        <div class="absolute bottom-3 right-3 bg-navy-950/80 backdrop-blur ring-1 ring-white/10 rounded px-2 py-1 text-[10px] text-white/80 font-mono">
+          {{ result.processingMs }} ms · {{ result.detections.length }} detección(es)
+        </div>
+      }
+    }
+
+    @if (!isActive()) {
+      <div class="aspect-video grid place-items-center text-center p-6">
+        <div class="max-w-sm">
+          <div class="w-14 h-14 rounded-full bg-white/5 text-white/60 grid place-items-center mx-auto mb-3">
+            <app-icon name="camera" [size]="26" />
+          </div>
+          <p class="text-[14px] text-white font-medium">Cámara apagada</p>
+          <p class="text-[12.5px] text-white/60 mt-1">
+            Permita el acceso a la cámara para tomar fotografías del tatuaje directamente desde este equipo.
+          </p>
+          <button
+            type="button"
+            (click)="start()"
+            [disabled]="isStarting()"
+            class="mt-4 px-4 py-2 text-[13px] font-semibold text-white bg-accent hover:bg-accent-600 disabled:opacity-60 rounded-md inline-flex items-center gap-1.5"
+          >
+            @if (isStarting()) {
+              <app-icon name="loader" [size]="14" class="spin" /> Iniciando…
+            } @else {
+              <app-icon name="camera" [size]="14" /> Encender cámara
+            }
+          </button>
+        </div>
+      </div>
+    }
+  </div>
+
+  @if (error()) {
+    <p class="px-4 py-2.5 bg-rose-50 border-t border-rose-200 text-[12.5px] text-rose-700" role="alert">{{ error() }}</p>
+  }
+
+  @if (liveMode() && liveError()) {
+    <p class="px-4 py-2 bg-amber-50 border-t border-amber-200 text-[12px] text-amber-800" role="status">{{ liveError() }}</p>
+  }
+
+  <!-- Controles -->
+  @if (isActive()) {
+    <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+      <button
+        type="button"
+        (click)="toggleLive()"
+        class="text-[12.5px] font-medium px-3 py-2 rounded-md border flex items-center gap-1.5"
+        [class]="liveMode() ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 text-slate-600 hover:bg-slate-50'"
+      >
+        <app-icon [name]="liveMode() ? 'radio' : 'zap'" [size]="14" />
+        {{ liveMode() ? 'Detener asistencia' : 'Asistencia en vivo' }}
+      </button>
+
+      <button
+        type="button"
+        (click)="capture()"
+        class="text-[13px] font-semibold text-white bg-navy-800 hover:bg-navy-900 px-4 py-2 rounded-md flex items-center gap-1.5 shadow-card"
+      >
+        <app-icon name="camera" [size]="15" /> Capturar fotografía
+      </button>
+    </div>
+
+    @if (liveMode()) {
+      <p class="px-4 pb-3 -mt-1 text-[11.5px] text-slate-500 leading-relaxed">
+        La asistencia en vivo es orientativa y <strong>no queda registrada</strong>: ayuda a encuadrar la toma.
+        Para que el resultado tenga valor de consulta, capture la fotografía y ejecute el análisis.
+      </p>
+    }
+  }
+
+  <!-- Capturas acumuladas -->
+  @if (shotCount() > 0) {
+    <div class="px-4 py-3 border-t border-slate-100">
+      <div class="flex items-center justify-between gap-3 mb-2">
+        <span class="text-[11px] uppercase tracking-wider text-slate-500 font-medium">
+          {{ shotCount() }} {{ shotCount() === 1 ? 'fotografía capturada' : 'fotografías capturadas' }}
+        </span>
+        <button
+          type="button"
+          (click)="useShots()"
+          class="text-[12.5px] font-semibold text-white bg-accent hover:bg-accent-600 px-3 py-1.5 rounded-md flex items-center gap-1.5"
+        >
+          <app-icon name="check" [size]="13" /> Añadir al análisis
+        </button>
+      </div>
+
+      <div class="flex items-center gap-2 overflow-x-auto pb-1">
+        @for (preview of shotPreviews(); track preview) {
+          <div class="relative shrink-0">
+            <img [src]="preview" alt="Fotografía capturada" class="w-20 h-20 object-cover rounded-md ring-1 ring-slate-200" />
+            <button
+              type="button"
+              (click)="removeShot($index)"
+              title="Descartar esta toma"
+              class="absolute -top-1.5 -right-1.5 w-5 h-5 grid place-items-center rounded-full bg-white ring-1 ring-slate-200 text-slate-500 hover:text-rose-600 hover:ring-rose-200"
+            >
+              <app-icon name="x" [size]="11" />
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

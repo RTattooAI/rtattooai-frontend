@@ -52,6 +52,14 @@ export class AdminUsers implements OnInit {
 
   readonly togglingId = signal<string | null>(null);
 
+  // Restablecimiento de contrasena: sustituye al "olvide mi contrasena" que antes
+  // era un enlace sin funcion en la pantalla de acceso.
+  readonly resetTargetId = signal<string | null>(null);
+  readonly resetPassword = signal('');
+  readonly isResetting = signal(false);
+  readonly resetError = signal<string | null>(null);
+  readonly resetSuccess = signal<string | null>(null);
+
   ngOnInit(): void {
     this.load();
   }
@@ -105,6 +113,44 @@ export class AdminUsers implements OnInit {
       error: (err) => {
         this.isSubmitting.set(false);
         this.formError.set(err.error?.error ?? 'No se pudo crear el usuario. Intenta de nuevo.');
+      }
+    });
+  }
+
+  openReset(user: UserListItem): void {
+    this.resetTargetId.set(user.id);
+    this.resetPassword.set('');
+    this.resetError.set(null);
+    this.resetSuccess.set(null);
+  }
+
+  closeReset(): void {
+    this.resetTargetId.set(null);
+  }
+
+  onResetPasswordInput(event: Event): void {
+    this.resetPassword.set((event.target as HTMLInputElement).value);
+  }
+
+  submitReset(): void {
+    const id = this.resetTargetId();
+    const password = this.resetPassword();
+    if (!id || password.length < 8 || this.isResetting()) {
+      return;
+    }
+
+    this.isResetting.set(true);
+    this.resetError.set(null);
+
+    this.usersService.resetPassword(id, password).subscribe({
+      next: (updated) => {
+        this.isResetting.set(false);
+        this.resetTargetId.set(null);
+        this.resetSuccess.set(`Contraseña restablecida para ${updated.email}.`);
+      },
+      error: (err) => {
+        this.isResetting.set(false);
+        this.resetError.set(err.error?.error ?? 'No se pudo restablecer la contraseña.');
       }
     });
   }

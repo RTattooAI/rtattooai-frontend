@@ -1,0 +1,84 @@
+<div class="px-4 sm:px-8 py-6 screen-enter">
+  <div class="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div>
+      <h2 class="text-[20px] font-semibold text-navy-900 tracking-tight">Registro de auditoría</h2>
+      <p class="mt-1 text-[13px] text-slate-500 max-w-2xl">
+        Traza de accesos y cambios: inicios de sesión, consultas abiertas, validaciones periciales y modificaciones
+        del catálogo o de las cuentas. Es un registro de solo lectura.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="reload()"
+      class="px-3.5 py-2 text-[13px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
+    >
+      <app-icon name="refresh-cw" [size]="14" /> Actualizar
+    </button>
+  </div>
+
+  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 mb-4">
+    <div class="relative">
+      <app-icon name="search" [size]="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <input
+        [value]="search()"
+        (input)="onSearchInput($event)"
+        placeholder="Filtrar por acción, usuario, recurso o dirección IP…"
+        class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+      />
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Cargando…</span>
+    </div>
+  } @else if (error()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ error() }}</p>
+  } @else {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-[13px]">
+          <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+            <tr>
+              <th class="px-4 py-2.5 text-left font-medium">Fecha</th>
+              <th class="px-4 py-2.5 text-left font-medium">Usuario</th>
+              <th class="px-4 py-2.5 text-left font-medium">Rol</th>
+              <th class="px-4 py-2.5 text-left font-medium">Acción</th>
+              <th class="px-4 py-2.5 text-left font-medium">Recurso</th>
+              <th class="px-4 py-2.5 text-left font-medium">Resultado</th>
+              <th class="px-4 py-2.5 text-left font-medium">Origen</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (row of rows(); track row.item.id) {
+              <tr class="hover:bg-slate-50/70">
+                <td class="px-4 py-2.5 text-slate-500 font-mono text-[12px] whitespace-nowrap">
+                  {{ row.date | date: 'dd/MM/yyyy HH:mm:ss' }}
+                </td>
+                <td class="px-4 py-2.5 text-slate-800">{{ row.item.userEmail ?? '—' }}</td>
+                <td class="px-4 py-2.5 text-slate-600">{{ row.item.userRole ?? '—' }}</td>
+                <td class="px-4 py-2.5 font-mono text-[12px] text-navy-900">{{ row.item.action }}</td>
+                <td class="px-4 py-2.5 font-mono text-[11px] text-slate-500 max-w-[220px] truncate">
+                  {{ row.item.resource ?? '—' }}
+                </td>
+                <td class="px-4 py-2.5">
+                  <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 tabular" [class]="row.badge">
+                    {{ row.item.statusCode }}
+                  </span>
+                </td>
+                <td class="px-4 py-2.5 text-slate-500 font-mono text-[12px]">{{ row.item.ipAddress ?? '—' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="px-4 py-12 text-center text-[13px] text-slate-500">
+                  No hay registros que coincidan con el filtro.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

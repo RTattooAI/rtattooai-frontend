@@ -29,6 +29,16 @@ export const routes: Routes = [
         loadComponent: () => import('./features/catalog/enroll/enroll').then((m) => m.Enroll)
       },
       {
+        path: 'reviews',
+        canActivate: [roleGuard(['admin', 'supervisor'])],
+        loadComponent: () => import('./features/reviews/reviews').then((m) => m.Reviews)
+      },
+      {
+        path: 'admin/audit',
+        canActivate: [roleGuard(['admin'])],
+        loadComponent: () => import('./features/admin/audit/audit').then((m) => m.AdminAudit)
+      },
+      {
         path: 'admin/users',
         canActivate: [roleGuard(['admin'])],
         loadComponent: () => import('./features/admin/users/users').then((m) => m.AdminUsers)

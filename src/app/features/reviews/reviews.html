@@ -1,0 +1,107 @@
+<div class="px-4 sm:px-8 py-6 screen-enter">
+  <div class="flex items-end justify-between gap-4 flex-wrap mb-5">
+    <div>
+      <h2 class="text-[20px] font-semibold text-navy-900 tracking-tight">Bandeja de segunda revisión</h2>
+      <p class="mt-1 text-[13px] text-slate-500 max-w-2xl">
+        Detecciones que un analista marcó para que otra persona las contraste. Abrir el caso lleva al análisis
+        completo, donde puede confirmarse o descartarse la coincidencia.
+      </p>
+    </div>
+    <button
+      type="button"
+      (click)="reload()"
+      class="px-3.5 py-2 text-[13px] font-medium text-slate-600 border border-slate-200 hover:bg-slate-50 rounded-md flex items-center gap-1.5"
+    >
+      <app-icon name="refresh-cw" [size]="14" /> Actualizar
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Cargando…</span>
+    </div>
+  } @else if (error()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ error() }}</p>
+  } @else {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-[13px]">
+          <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500">
+            <tr>
+              <th class="px-4 py-2.5 text-left font-medium">Imagen</th>
+              <th class="px-4 py-2.5 text-left font-medium">Caso</th>
+              <th class="px-4 py-2.5 text-left font-medium">Solicitada por</th>
+              <th class="px-4 py-2.5 text-left font-medium">Mejor coincidencia</th>
+              <th class="px-4 py-2.5 text-left font-medium">Observaciones</th>
+              <th class="px-4 py-2.5 text-left font-medium">Fecha</th>
+              <th class="px-4 py-2.5"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (row of rows(); track row.item.detectionId) {
+              <tr class="hover:bg-slate-50/70">
+                <td class="px-4 py-2">
+                  <app-tattoo-thumb [id]="row.item.detectionId" [imageUrl]="row.item.thumbnailUrl" [size]="40" />
+                </td>
+                <td class="px-4 py-3">
+                  @if (row.item.personName || row.item.documentId) {
+                    <div class="text-slate-800">{{ row.item.personName ?? '—' }}</div>
+                    @if (row.item.documentId) {
+                      <div class="text-[11px] text-slate-500 font-mono">{{ row.item.documentId }}</div>
+                    }
+                  } @else {
+                    <span class="font-mono text-[11px] text-slate-500">{{ row.item.analysisId }}</span>
+                  }
+                  <div class="text-[11px] text-slate-400 mt-0.5">Detección al {{ row.confidencePct }}%</div>
+                </td>
+                <td class="px-4 py-3 text-slate-700">{{ row.item.requestedBy }}</td>
+                <td class="px-4 py-3">
+                  @if (row.item.verdict === 'no_match') {
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-rose-50 text-rose-700 ring-rose-200">
+                      Sin coincidencia concluyente
+                    </span>
+                  } @else if (row.band && row.similarityPct !== null) {
+                    <div class="flex items-center gap-2">
+                      <span class="text-slate-800 font-medium">{{ row.item.topBand }}</span>
+                      <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1" [class]="row.band.soft + ' ' + row.band.text + ' ' + row.band.ring">
+                        {{ row.similarityPct }}%
+                      </span>
+                    </div>
+                  } @else {
+                    <span class="text-slate-400">—</span>
+                  }
+                </td>
+                <td class="px-4 py-3 text-slate-600 max-w-[280px]">
+                  @if (row.item.notes) {
+                    <span class="line-clamp-2">{{ row.item.notes }}</span>
+                  } @else {
+                    <span class="text-slate-400">Sin observaciones</span>
+                  }
+                </td>
+                <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">
+                  {{ row.requestedAt ? (row.requestedAt | date: 'dd/MM/yyyy HH:mm') : '—' }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <button
+                    type="button"
+                    (click)="open(row.item)"
+                    class="px-3 py-1.5 text-[12px] font-medium text-white bg-navy-800 hover:bg-navy-900 rounded-md inline-flex items-center gap-1.5"
+                  >
+                    Revisar <app-icon name="arrow-right" [size]="12" />
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="px-4 py-12 text-center text-[13px] text-slate-500">
+                  No hay detecciones pendientes de segunda revisión.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

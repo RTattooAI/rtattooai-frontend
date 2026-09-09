@@ -66,7 +66,7 @@
         <label class="block">
           <div class="flex items-center justify-between">
             <span class="text-[12px] font-medium text-slate-700 uppercase tracking-wider">Contraseña</span>
-            <a href="#" class="text-[11px] text-accent hover:underline">¿Olvidó su contraseña?</a>
+            <span class="text-[11px] text-slate-500">¿Olvidó su contraseña? Solicítela al administrador</span>
           </div>
           <div class="mt-1.5 relative">
             <app-icon name="lock" [size]="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -90,8 +90,14 @@
 
         <label class="flex items-center gap-2 text-[13px] text-slate-700 cursor-pointer select-none">
           <input type="checkbox" [checked]="remember()" (change)="toggleRemember($event)" class="w-4 h-4 accent-accent rounded" />
-          Mantener sesión activa en este equipo
+          Mantener la sesión al cerrar el navegador
         </label>
+
+        @if (sessionExpired && !error()) {
+          <p class="px-3 py-2.5 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-900" role="status">
+            Su sesión caducó por seguridad. Vuelva a ingresar.
+          </p>
+        }
 
         @if (error()) {
           <p class="px-3 py-2.5 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ error() }}</p>
@@ -111,20 +117,6 @@
           }
         </button>
       </div>
-
-      <div class="my-6 flex items-center gap-3 text-[11px] text-slate-400 uppercase tracking-wider">
-        <div class="flex-1 h-px bg-slate-200"></div>
-        o
-        <div class="flex-1 h-px bg-slate-200"></div>
-      </div>
-
-      <button
-        type="button"
-        class="w-full border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium py-2.5 rounded-md text-[13px] flex items-center justify-center gap-2"
-      >
-        <app-icon name="fingerprint" [size]="16" />
-        Ingresar con token PNP
-      </button>
 
       <div class="mt-6 px-3 py-2.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] text-amber-900 leading-snug flex items-start gap-2">
         <app-icon name="triangle-alert" [size]="14" class="text-amber-600 mt-0.5 shrink-0" />

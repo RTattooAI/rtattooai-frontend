@@ -3,9 +3,18 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
 import { AnalysisService } from '../../../core/api';
-import { Analysis, Detection, Match, ValidationStatus } from '../../../core/models';
+import { Analysis, AnalysisImage, Detection, Match, ValidationStatus } from '../../../core/models';
 import { BboxOverlay, ConfidenceSemaforo, DisclaimerBanner } from '../../../shared/components';
-import { Icon, TattooThumb, ConfidenceBand, confidenceBand, detectionColor } from '../../../shared/ui';
+import {
+  Icon,
+  TattooThumb,
+  ConfidenceBand,
+  confidenceBand,
+  detectionColor,
+  DETECTION_HIGH,
+  SIMILARITY_STRONG,
+  SIMILARITY_THRESHOLD
+} from '../../../shared/ui';
 import { buildAnalysisPdf } from './pdf-report';
 
 interface MatchVm {
@@ -23,8 +32,12 @@ interface DetectionChip {
   verdict: Detection['verdict'];
 }
 
-/** Coincide con el umbral de "Alta" confianza usado en confidence.ts. */
-const ENROLL_DEFAULT_THRESHOLD_PCT = 80;
+/**
+ * Preseleccion para enrolar: se mide la confianza del DETECTOR (¿el recorte es un
+ * tatuaje nitido?), no la similitud con el catalogo. Por eso usa DETECTION_HIGH y no
+ * el corte de similitud del semaforo.
+ */
+const ENROLL_DEFAULT_THRESHOLD_PCT = DETECTION_HIGH;
 
 interface ConfidenceSummary {
   alta: number;
@@ -44,6 +57,8 @@ export class Results {
   readonly analysis = signal<Analysis | null>(null);
   readonly isLoading = signal(true);
   readonly error = signal<string | null>(null);
+  /** Imagen del análisis que se está viendo; las detecciones se filtran por ella. */
+  readonly activeImageIndex = signal(0);
   readonly activeDetection = signal(0);
   readonly activeMatch = signal(0);
 
@@ -60,15 +75,37 @@ export class Results {
   readonly isExportingPdf = signal(false);
   readonly pdfExportError = signal<string | null>(null);
 
+  readonly isRetrying = signal(false);
+  readonly retryError = signal<string | null>(null);
+
   readonly detections = computed<Detection[]>(() => this.analysis()?.detections ?? []);
   readonly detectionCount = computed(() => this.detections().length);
   readonly totalMatches = computed(() => this.detections().reduce((acc, d) => acc + d.matches.length, 0));
 
-  readonly activeDet = computed<Detection | null>(() => this.detections()[this.activeDetection()] ?? null);
+  readonly images = computed<AnalysisImage[]>(() => this.analysis()?.images ?? []);
+  readonly imageCount = computed(() => this.images().length);
+  readonly activeImage = computed<AnalysisImage | null>(() => this.images()[this.activeImageIndex()] ?? null);
+
+  /** Detecciones de la imagen que se está viendo. */
+  readonly imageDetections = computed<Detection[]>(() => {
+    const image = this.activeImage();
+    return image ? this.detections().filter((d) => d.imageId === image.id) : [];
+  });
+
+  readonly activeDet = computed<Detection | null>(() => this.imageDetections()[this.activeDetection()] ?? null);
   readonly bestSimilarity = computed<number | null>(() => this.activeDet()?.matches[0]?.similarity ?? null);
 
+  /** Miniaturas de la tira de imágenes, con cuántas detecciones aportó cada una. */
+  readonly imageTabs = computed(() =>
+    this.images().map((image, index) => ({
+      image,
+      index,
+      detectionCount: this.detections().filter((d) => d.imageId === image.id).length
+    }))
+  );
+
   readonly detectionChips = computed<DetectionChip[]>(() =>
-    this.detections().map((detection, index) => {
+    this.imageDetections().map((detection, index) => {
       const pct = Math.round(detection.confidence * 100);
       return { id: detection.id, index, pct, color: detectionColor(pct), verdict: detection.verdict };
     })
@@ -86,9 +123,9 @@ export class Results {
   readonly summary = computed<ConfidenceSummary>(() => {
     const counts: ConfidenceSummary = { alta: 0, media: 0, baja: 0 };
     for (const vm of this.matchVms()) {
-      if (vm.pct >= 80) {
+      if (vm.pct >= SIMILARITY_STRONG) {
         counts.alta++;
-      } else if (vm.pct >= 60) {
+      } else if (vm.pct >= SIMILARITY_THRESHOLD) {
         counts.media++;
       } else {
         counts.baja++;
@@ -110,10 +147,40 @@ export class Results {
     this.load(id);
   }
 
+  /** Reprocesa un analisis fallido reutilizando la imagen ya almacenada. */
+  retry(): void {
+    const item = this.analysis();
+    if (!item || this.isRetrying()) {
+      return;
+    }
+
+    this.isRetrying.set(true);
+    this.retryError.set(null);
+
+    this.analysisService.retry(item.id).subscribe({
+      next: (updated) => {
+        this.isRetrying.set(false);
+        this.analysis.set(updated);
+        this.activeImageIndex.set(0);
+        this.activeDetection.set(0);
+        this.activeMatch.set(0);
+      },
+      error: (err) => {
+        this.isRetrying.set(false);
+        this.retryError.set(err.error?.error ?? 'No se pudo reintentar el análisis.');
+      }
+    });
+  }
+
+  selectImage(index: number): void {
+    this.activeImageIndex.set(index);
+    this.selectDetection(0);
+  }
+
   selectDetection(index: number): void {
     this.activeDetection.set(index);
     this.activeMatch.set(0);
-    this.validationNotesDraft.set(this.detections()[index]?.validationNotes ?? '');
+    this.validationNotesDraft.set(this.imageDetections()[index]?.validationNotes ?? '');
     this.validationError.set(null);
   }
 
@@ -225,6 +292,7 @@ export class Results {
     this.analysisService.getById(id).subscribe({
       next: (analysis) => {
         this.analysis.set(analysis);
+        this.activeImageIndex.set(0);
         this.activeDetection.set(0);
         this.activeMatch.set(0);
         this.validationNotesDraft.set(analysis.detections[0]?.validationNotes ?? '');
@@ -239,6 +307,7 @@ export class Results {
         this.enrolledDetectionIds.set(new Set());
         this.enrollError.set(null);
         this.enrollSuccess.set(null);
+        this.retryError.set(null);
         this.isLoading.set(false);
       },
       error: () => {
