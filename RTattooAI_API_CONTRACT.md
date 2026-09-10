@@ -566,3 +566,71 @@ Transparente para el contrato: `GET /api/files/{ruta}` devuelve siempre la image
 ### Ajuste de imagen (RF-02)
 
 No añade ningún endpoint: el recorte, el giro y la corrección de brillo y contraste ocurren en el navegador y lo que llega a `POST /api/analyses` es ya la imagen ajustada. Es deliberado — lo que se archiva en el expediente debe ser exactamente lo que se analizó, sin reinterpretación del servidor.
+
+---
+
+## H. Tres clases de coincidencia y calibración del modelo (setiembre 2026)
+
+Cambios derivados de la calibración con datos reales. El detalle de las mediciones está en `docs/RTattooAI_CALIBRACION_MODELO.md`.
+
+### `verdict` admite un valor más
+
+```
+match | review | no_match
+```
+
+`review` es la franja intermedia: hay un candidato razonable pero por debajo del umbral con el que el sistema sostiene una coincidencia. Es el caso del tatuaje gastado, frecuente en la práctica. Presentarlo como `no_match` pierde información útil; presentarlo como `match` afirma algo que el sistema no puede sostener.
+
+El backend lo persiste como texto, de modo que el valor nuevo no requiere migración. **Un veredicto que el backend no reconozca se trata como `no_match`**: ante algo que no entiende, el sistema debe callar antes que afirmar.
+
+### `DetectionDto` incorpora `matchType`
+
+Ortogonal al veredicto: dice *qué clase de cosa* coincidió, no *si* coincidió.
+
+| Valor | Significado |
+|---|---|
+| `band` | Coincide con una entrada del catálogo atribuida a una banda |
+| `unclassified` | Coincide con una entrada **sin banda asignada**. El sistema ya había visto ese tatuaje en otro caso, pero nadie ha determinado a qué corresponde. **No es una atribución de pertenencia** y no debe presentarse como tal |
+| `review` | Candidato por debajo del umbral firme |
+| `none` | Nada por encima del umbral |
+
+`unclassified` existe porque el enrolamiento desde un análisis crea entradas sin banda: al reencontrarlas, el campo `band` de la coincidencia viaja vacío. Antes eso se veía en el historial igual que "sin coincidencia" y en resultados como una coincidencia con banda en blanco.
+
+En `AnalysisSummaryDto`, `topBand` devuelve **"Sin clasificar"** en ese caso, en lugar de una cadena vacía.
+
+### `POST /identify` (servicio de inferencia) devuelve además `review_threshold`
+
+```json
+{ "threshold": 0.70, "margin": 0.0, "review_threshold": 0.55, "...": "..." }
+```
+
+Los umbrales viajan con la respuesta para que el cliente no tenga que suponerlos. Están **calibrados para el tamaño actual de la galería** (25 identidades) y hay que recalibrarlos cuando crezca: está medido que al 5 % de falsos positivos hacen falta 0.665 con 50 identidades y 0.89 con 400.
+
+### `GET /info` (servicio de inferencia) añade tres campos
+
+```json
+{
+  "review_threshold": 0.55,
+  "calibrated_for_identities": 25,
+  "gallery_warning": null,
+  "calibration_warning": null
+}
+```
+
+- `gallery_warning`: la galería no corresponde a la cabeza cargada. Los vectores solo significan algo en el espacio que produce una cabeza concreta; con otra, el sistema **sigue respondiendo** con un candidato y un porcentaje calculados sobre ruido. El servicio se niega a dar esos resultados por buenos y avisa también en el arranque.
+- `calibration_warning`: la galería creció muy por encima del tamaño con el que se calibraron los umbrales, de modo que el sistema está aceptando más impostores de los previstos.
+
+### `GET /api/catalog` añade el filtro `pendingBand`
+
+`pendingBand=true` devuelve solo las entradas sin banda asignada: es la bandeja de trabajo de supervisión, el destino de lo que se enrola desde un análisis.
+
+### Cambio de umbrales operativos
+
+| Parámetro | Antes | Ahora | Motivo |
+|---|---:|---:|---|
+| `match_threshold` (ρ) | 0.55 | 0.70 | El valor anterior producía **43 % de falsos positivos** medido sobre datos reales |
+| `match_margin` (δ) | 0.05 | 0.0 | Con el umbral recalibrado no aporta separación adicional |
+| `review_threshold` | — | 0.55 | Franja intermedia, nueva |
+| `det_conf` | 0.15 | 0.60 | Con 0.15 el detector marcaba algo en el **52 %** de las fotografías de personas sin tatuajes, sobre todo uñas decoradas |
+
+La escala de similitud del frontend (`SIMILARITY_STRONG` / `SIMILARITY_THRESHOLD`) se mueve con estos valores: son los mismos cortes, no una escala aparte. Si se separan, la pantalla dice una cosa y el sistema hace otra.
