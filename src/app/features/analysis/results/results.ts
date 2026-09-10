@@ -278,8 +278,12 @@ export class Results {
         this.isEnrolling.set(false);
         this.enrolledDetectionIds.set(new Set([...this.enrolledDetectionIds(), ...detectionIds]));
         this.selectedDetectionIds.set(new Set());
+        // El mensaje dice lo que pasa a continuacion: quien enrola desde un analisis
+        // no tiene por que rellenar nada, pero si tiene que saber que alguien lo hara.
         this.enrollSuccess.set(
-          `${catalogItems.length} ${catalogItems.length === 1 ? 'tatuaje agregado' : 'tatuajes agregados'} al catálogo, sin banda asignada.`
+          `${catalogItems.length} ${catalogItems.length === 1 ? 'tatuaje agregado' : 'tatuajes agregados'} al catálogo. ` +
+            'Quedan pendientes de clasificar: desde ahora el sistema los reconocerá si vuelven a aparecer, ' +
+            'y supervisión les asignará banda y datos desde el catálogo.'
         );
       },
       error: (err) => {

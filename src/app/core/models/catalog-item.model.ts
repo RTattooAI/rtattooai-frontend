@@ -32,6 +32,11 @@ export interface CatalogFilters {
   tag?: string;
   validated?: boolean;
   q?: string;
+  /**
+   * Solo entradas sin banda asignada. Es la bandeja de trabajo de supervisión:
+   * tatuajes que el sistema ya reconoce y que nadie ha clasificado todavía.
+   */
+  pendingBand?: boolean;
 }
 
 /** Valores que existen en el catálogo, para poblar los desplegables de filtro. */

@@ -29,13 +29,19 @@
         <div class="text-[20px] font-semibold tabular text-navy-900">{{ validatedCount() }}</div>
       </div>
     </div>
-    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">
+    <button
+      type="button"
+      (click)="togglePendingBand()"
+      [title]="'Ver solo los tatuajes que esperan clasificación'"
+      class="bg-white rounded-lg border shadow-card p-4 flex items-center gap-3 text-left transition-colors"
+      [class]="pendingBandFilter() ? 'border-accent ring-2 ring-accent/20' : 'border-slate-200 hover:bg-slate-50'"
+    >
       <div class="w-9 h-9 grid place-items-center rounded-md text-amber-700 bg-amber-50"><app-icon name="plus-circle" [size]="16" /></div>
       <div>
-        <div class="text-[11px] text-slate-500 uppercase tracking-wider">En revisión</div>
-        <div class="text-[20px] font-semibold tabular text-navy-900">{{ pendingCount() }}</div>
+        <div class="text-[11px] text-slate-500 uppercase tracking-wider">Sin clasificar</div>
+        <div class="text-[20px] font-semibold tabular text-navy-900">{{ withoutBandCount() }}</div>
       </div>
-    </div>
+    </button>
   </div>
 
   <!-- Filters / actions bar -->
@@ -110,15 +116,27 @@
       </select>
     </div>
 
-    @if (hasFilters()) {
-      <button
-        type="button"
-        (click)="clearFilters()"
-        class="px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 rounded-md flex items-center gap-1.5"
-      >
-        <app-icon name="x" [size]="12" /> Limpiar filtros
-      </button>
-    }
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      @if (pendingBandFilter()) {
+        <p class="text-[12px] text-navy-800 bg-accent/10 px-3 py-1.5 rounded-md flex items-center gap-1.5">
+          <app-icon name="info" [size]="13" />
+          Mostrando solo lo que espera clasificación. Asigne la banda y valide para que el sistema
+          pueda atribuir futuras coincidencias.
+        </p>
+      } @else {
+        <span></span>
+      }
+
+      @if (hasFilters()) {
+        <button
+          type="button"
+          (click)="clearFilters()"
+          class="px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 rounded-md flex items-center gap-1.5"
+        >
+          <app-icon name="x" [size]="12" /> Limpiar filtros
+        </button>
+      }
+    </div>
   </div>
 
   <!-- Table -->

@@ -48,6 +48,13 @@ export class Enroll implements OnInit, OnDestroy {
   readonly tagFilter = signal('');
   readonly validatedFilter = signal<'all' | 'yes' | 'no'>('all');
 
+  /**
+   * Bandeja de clasificación: los tatuajes que entraron desde un análisis y todavía
+   * no tienen banda. Es el destino natural del enrolamiento de un solo clic, y sin
+   * una vista propia esas entradas se quedaban perdidas entre el resto del catálogo.
+   */
+  readonly pendingBandFilter = signal(false);
+
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Alta de una entrada del catalogo.
@@ -81,7 +88,8 @@ export class Enroll implements OnInit, OnDestroy {
       this.categoryFilter() !== '' ||
       this.bodyLocationFilter() !== '' ||
       this.tagFilter() !== '' ||
-      this.validatedFilter() !== 'all'
+      this.validatedFilter() !== 'all' ||
+      this.pendingBandFilter()
   );
 
   readonly rows = computed<CatalogRow[]>(() =>
@@ -94,6 +102,9 @@ export class Enroll implements OnInit, OnDestroy {
   );
   readonly validatedCount = computed(() => this.items().filter((item) => item.validated).length);
   readonly pendingCount = computed(() => this.total() - this.validatedCount());
+
+  /** Entradas sin banda: las que esperan que alguien las clasifique. */
+  readonly withoutBandCount = computed(() => this.items().filter((item) => !item.band).length);
 
   ngOnInit(): void {
     this.load();
@@ -141,6 +152,12 @@ export class Enroll implements OnInit, OnDestroy {
     this.bodyLocationFilter.set('');
     this.tagFilter.set('');
     this.validatedFilter.set('all');
+    this.pendingBandFilter.set(false);
+    this.load();
+  }
+
+  togglePendingBand(): void {
+    this.pendingBandFilter.update((activo) => !activo);
     this.load();
   }
 
@@ -340,7 +357,8 @@ export class Enroll implements OnInit, OnDestroy {
       category: this.categoryFilter() || undefined,
       bodyLocation: this.bodyLocationFilter() || undefined,
       tag: this.tagFilter() || undefined,
-      validated: validated === 'all' ? undefined : validated === 'yes'
+      validated: validated === 'all' ? undefined : validated === 'yes',
+      pendingBand: this.pendingBandFilter() ? true : undefined
     };
   }
 
