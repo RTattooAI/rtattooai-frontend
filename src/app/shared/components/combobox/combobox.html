@@ -1,0 +1,79 @@
+<div class="relative">
+  <div class="relative">
+    <input
+      [value]="display()"
+      [placeholder]="placeholder()"
+      [disabled]="disabled()"
+      (focus)="open()"
+      (input)="onInput($event)"
+      (keydown)="onKeyDown($event)"
+      (blur)="onBlur($event)"
+      autocomplete="off"
+      role="combobox"
+      [attr.aria-expanded]="isOpen()"
+      class="w-full pl-3 pr-16 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 disabled:opacity-60"
+    />
+
+    <div class="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+      @if (display()) {
+        <button
+          type="button"
+          (click)="clear()"
+          [disabled]="disabled()"
+          title="Vaciar"
+          class="p-1 text-slate-400 hover:text-slate-700 rounded"
+        >
+          <app-icon name="x" [size]="13" />
+        </button>
+      }
+      <button
+        type="button"
+        (click)="open()"
+        [disabled]="disabled()"
+        tabindex="-1"
+        title="Ver opciones"
+        class="p-1 text-slate-400 hover:text-slate-700 rounded"
+      >
+        <app-icon name="chevron-down" [size]="14" />
+      </button>
+    </div>
+  </div>
+
+  @if (isOpen()) {
+    <div
+      class="absolute z-30 mt-1 w-full max-h-56 overflow-auto bg-white border border-slate-200 rounded-md shadow-pop py-1"
+      role="listbox"
+    >
+      @for (option of filtered(); track option; let i = $index) {
+        <button
+          type="button"
+          role="option"
+          [attr.aria-selected]="option === value()"
+          (click)="select(option)"
+          class="w-full text-left px-3 py-1.5 text-[13px] flex items-center justify-between gap-2"
+          [class]="i === highlighted() ? 'bg-accent/10 text-navy-900' : 'text-slate-700 hover:bg-slate-50'"
+        >
+          <span class="truncate">{{ option }}</span>
+          @if (option === value()) {
+            <app-icon name="check" [size]="12" class="text-accent shrink-0" />
+          }
+        </button>
+      } @empty {
+        <p class="px-3 py-2 text-[12px] text-slate-500">
+          @if (allowCustom()) {
+            Ninguna coincide. Se guardará lo que escriba.
+          } @else {
+            Ninguna opción coincide.
+          }
+        </p>
+      }
+
+      @if (allowCustom() && isNew()) {
+        <div class="mt-1 px-3 py-2 border-t border-slate-100 text-[11.5px] text-amber-700 bg-amber-50/60 flex items-start gap-1.5">
+          <app-icon name="info" [size]="12" class="mt-0.5 shrink-0" />
+          <span>{{ customHint() }}</span>
+        </div>
+      }
+    </div>
+  }
+</div>

@@ -38,6 +38,12 @@ export class ConfidenceSemaforo {
     if (this.verdict() === 'no_match') {
       return 'rojo';
     }
+    // Un veredicto de revisión nunca es verde, por alta que salga la similitud: el
+    // modelo ya decidió que no llega al umbral firme, y pintarlo en verde diría en
+    // pantalla lo contrario de lo que el sistema concluyó.
+    if (this.verdict() === 'review') {
+      return 'amarillo';
+    }
     return (this.similarity() ?? 0) >= GREEN_THRESHOLD ? 'verde' : 'amarillo';
   });
 

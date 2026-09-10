@@ -4,3 +4,5 @@ export * from './bbox-overlay/bbox-overlay';
 export * from './image-dropzone/image-dropzone';
 export * from './camera-capture/camera-capture';
 export * from './image-editor/image-editor';
+export * from './combobox/combobox';
+export * from './tag-input/tag-input';

@@ -3,13 +3,19 @@
  * contradecían en pantalla:
  *
  *  - SIMILITUD con el catálogo (identificación): decide el semáforo y la etiqueta de
- *    cada candidato. Los cortes coinciden con los parámetros del modelo: por debajo
- *    del umbral operativo (0.55) nada puede ser coincidencia, y 0.75 es el corte de
- *    "coincidencia fuerte" documentado en el OE3.
+ *    cada candidato. Los cortes son **los mismos que usa el modelo para decidir**,
+ *    no una escala aparte: 0.70 es el umbral firme y 0.55 el de revisión, calibrados
+ *    con datos reales para una tasa de falsos positivos del 5 % sobre la galería
+ *    actual. Si estas constantes y `match_config.json` se separan, la pantalla dirá
+ *    una cosa y el sistema hará otra — el problema que ya hubo con los cortes 75/55.
+ *
+ *    Está medido que el umbral necesario **sube conforme crece el catálogo**: al
+ *    mismo 5 % de falsos positivos hacen falta 0.665 con 50 identidades y 0.89 con
+ *    400. Cuando se recalibre `match_config.json` hay que mover también esto.
  *  - CONFIANZA DEL DETECTOR (¿hay un tatuaje aquí?): colorea la caja y decide la
  *    preselección para enrolar. No dice nada sobre a qué banda pertenece.
  */
-export const SIMILARITY_STRONG = 75;
+export const SIMILARITY_STRONG = 70;
 export const SIMILARITY_THRESHOLD = 55;
 
 export const DETECTION_HIGH = 80;

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { ImageDropzone } from '../../../shared/components';
+import { Combobox, ImageDropzone, TagInput } from '../../../shared/components';
 import { Icon, TattooThumb } from '../../../shared/ui';
 import { CatalogService } from '../../../core/api';
 import { AuthService } from '../../../core/auth';
@@ -19,7 +19,7 @@ const EMPTY_FACETS: CatalogFacets = { bands: [], categories: [], bodyLocations: 
 
 @Component({
   selector: 'app-enroll',
-  imports: [DatePipe, RouterLink, ImageDropzone, Icon, TattooThumb],
+  imports: [DatePipe, RouterLink, ImageDropzone, Combobox, TagInput, Icon, TattooThumb],
   templateUrl: './enroll.html'
 })
 export class Enroll implements OnInit, OnDestroy {
@@ -165,28 +165,12 @@ export class Enroll implements OnInit, OnDestroy {
     this.selectedFile.set(null);
   }
 
-  onBandInput(event: Event): void {
-    this.band.set((event.target as HTMLInputElement).value);
-  }
-
   onMetaNameInput(event: Event): void {
     this.metaName.set((event.target as HTMLInputElement).value);
   }
 
   onMetaDescriptionInput(event: Event): void {
     this.metaDescription.set((event.target as HTMLTextAreaElement).value);
-  }
-
-  onMetaCategoryInput(event: Event): void {
-    this.metaCategory.set((event.target as HTMLInputElement).value);
-  }
-
-  onMetaBodyLocationInput(event: Event): void {
-    this.metaBodyLocation.set((event.target as HTMLInputElement).value);
-  }
-
-  onMetaTagsInput(event: Event): void {
-    this.metaTags.set((event.target as HTMLInputElement).value);
   }
 
   /** Edita solo los campos descriptivos: la imagen no se puede sustituir. */
@@ -239,8 +223,8 @@ export class Enroll implements OnInit, OnDestroy {
     return this.assignErrors()[catalogId] ?? null;
   }
 
-  onBandDraftInput(catalogId: string, event: Event): void {
-    this.bandDrafts.set({ ...this.bandDrafts(), [catalogId]: (event.target as HTMLInputElement).value });
+  setBandDraft(catalogId: string, value: string): void {
+    this.bandDrafts.set({ ...this.bandDrafts(), [catalogId]: value });
   }
 
   assignBand(catalogId: string): void {

@@ -271,12 +271,33 @@
                   <h3 class="text-[13px] font-semibold text-navy-900">Detección {{ activeDetection() + 1 }}</h3>
                   <span
                     class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1"
-                    [class]="det.verdict === 'match' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-600 ring-slate-200'"
+                    [class]="matchTypeMeta[det.matchType]?.badge"
                   >
-                    {{ det.verdict === 'match' ? 'Coincidencia' : 'Sin coincidencia concluyente' }}
+                    {{ matchTypeMeta[det.matchType]?.label }}
                   </span>
                 </div>
                 <app-confidence-semaforo [verdict]="det.verdict" [similarity]="bestSimilarity()" />
+
+                @if (det.matchType === 'unclassified') {
+                  <p class="px-3 py-2 rounded-md bg-sky-50 border border-sky-200 text-[12px] text-sky-900 flex items-start gap-1.5">
+                    <app-icon name="info" [size]="13" class="mt-0.5 shrink-0" />
+                    <span>
+                      Este tatuaje <strong>ya se registró en otro caso</strong> pero todavía no tiene banda asignada.
+                      No es una atribución de pertenencia: es un reencuentro. Supervisión puede clasificarlo desde el
+                      catálogo para que a partir de entonces el sistema lo asocie a una banda.
+                    </span>
+                  </p>
+                }
+
+                @if (det.matchType === 'review') {
+                  <p class="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-900 flex items-start gap-1.5">
+                    <app-icon name="triangle-alert" [size]="13" class="mt-0.5 shrink-0" />
+                    <span>
+                      Hay un candidato parecido, pero por debajo del umbral con el que el sistema sostiene una
+                      coincidencia. Se muestra para que lo revise una persona, no como resultado.
+                    </span>
+                  </p>
+                }
               </div>
             }
 

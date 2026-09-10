@@ -16,7 +16,17 @@ const VALIDATION_LABELS: Record<Detection['validationStatus'], string> = {
 
 const VERDICT_LABELS: Record<Detection['verdict'], string> = {
   match: 'Coincidencia',
+  // El reporte es el documento que sale del sistema: la franja de revisión tiene
+  // que leerse como lo que es, no como una coincidencia atenuada.
+  review: 'Posible; requiere revisión',
   no_match: 'Sin coincidencia concluyente'
+};
+
+const MATCH_TYPE_LABELS: Record<Detection['matchType'], string> = {
+  band: 'Coincidencia con banda registrada',
+  unclassified: 'Tatuaje ya visto, sin banda asignada',
+  review: 'Candidato por debajo del umbral',
+  none: 'Sin coincidencia'
 };
 
 /** RF-07: ningún reporte puede circular sin esta advertencia. */
@@ -207,8 +217,23 @@ function drawDetections(doc: jsPDF, y: number, analysis: Analysis): number {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
+    doc.text(`Tipo de coincidencia: ${MATCH_TYPE_LABELS[det.matchType]}`, PAGE_MARGIN, y);
+    y += 4.5;
     doc.text(`Validación pericial: ${VALIDATION_LABELS[det.validationStatus]}`, PAGE_MARGIN, y);
     y += 5;
+
+    if (det.matchType === 'unclassified') {
+      // Sin esta línea, el lector del expediente vería una coincidencia con una
+      // banda vacía y podría interpretarla como una atribución.
+      const aviso = doc.splitTextToSize(
+        'Nota: el tatuaje coincide con una entrada del catálogo que aún no tiene banda asignada. ' +
+          'Indica que el sistema ya lo había visto en otro caso, no que pertenezca a una organización.',
+        CONTENT_WIDTH
+      ) as string[];
+      y = ensureSpace(doc, y, aviso.length * 4 + 2);
+      doc.text(aviso, PAGE_MARGIN, y);
+      y += aviso.length * 4 + 2;
+    }
 
     if (det.validationNotes) {
       const noteLines = doc.splitTextToSize(`Observaciones: ${det.validationNotes}`, CONTENT_WIDTH) as string[];

@@ -164,13 +164,16 @@
                       </a>
                     }
                   } @else {
-                    <div class="flex items-center gap-1.5 min-w-[200px]">
-                      <input
-                        [value]="bandDraftFor(row.item.catalogId)"
-                        (input)="onBandDraftInput(row.item.catalogId, $event)"
-                        placeholder="Asignar banda…"
-                        class="flex-1 px-2 py-1 text-[12px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-                      />
+                    <div class="flex items-center gap-1.5 min-w-[240px]">
+                      <div class="flex-1">
+                        <app-combobox
+                          [options]="facets().bands"
+                          [value]="bandDraftFor(row.item.catalogId)"
+                          (valueChange)="setBandDraft(row.item.catalogId, $event)"
+                          placeholder="Asignar banda…"
+                          customHint="Banda nueva: se creará al asignarla."
+                        />
+                      </div>
                       <button
                         (click)="assignBand(row.item.catalogId)"
                         [disabled]="!bandDraftFor(row.item.catalogId).trim() || isAssigning(row.item.catalogId)"
@@ -300,15 +303,18 @@
           </div>
         </div>
 
-        <label class="block">
+        <div>
           <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Banda asociada</span>
-          <input
-            [value]="band()"
-            (input)="onBandInput($event)"
-            placeholder="Ej. Los Pulpos"
-            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-          />
-        </label>
+          <div class="mt-1.5">
+            <app-combobox
+              [options]="facets().bands"
+              [value]="band()"
+              (valueChange)="band.set($event)"
+              placeholder="Elija una banda o escriba una nueva"
+              customHint="Esa banda no existe todavía: se creará al guardar."
+            />
+          </div>
+        </div>
 
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <label class="block">
@@ -321,38 +327,42 @@
             />
           </label>
 
-          <label class="block">
+          <div>
             <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Categoría</span>
-            <input
-              [value]="metaCategory()"
-              (input)="onMetaCategoryInput($event)"
-              placeholder="Ej. Símbolo, letras, animal"
-              list="catalog-categories"
-              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-          </label>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().categories"
+                [value]="metaCategory()"
+                (valueChange)="metaCategory.set($event)"
+                placeholder="Elija o escriba una categoría"
+                customHint="Categoría nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
 
-          <label class="block">
+          <div>
             <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Ubicación corporal</span>
-            <input
-              [value]="metaBodyLocation()"
-              (input)="onMetaBodyLocationInput($event)"
-              placeholder="Ej. Antebrazo derecho"
-              list="catalog-locations"
-              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-          </label>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().bodyLocations"
+                [value]="metaBodyLocation()"
+                (valueChange)="metaBodyLocation.set($event)"
+                placeholder="Elija o escriba una ubicación"
+                customHint="Ubicación nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
 
-          <label class="block">
+          <div class="sm:col-span-2">
             <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Etiquetas</span>
-            <input
-              [value]="metaTags()"
-              (input)="onMetaTagsInput($event)"
-              placeholder="corona, puntas, tinta negra"
-              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-            <span class="mt-1 block text-[11px] text-slate-500">Separadas por coma. Se guardan en minúsculas y sin repetidos.</span>
-          </label>
+            <div class="mt-1.5">
+              <app-tag-input
+                [value]="metaTags()"
+                [suggestions]="facets().tags"
+                (valueChange)="metaTags.set($event)"
+              />
+            </div>
+          </div>
         </div>
 
         <label class="block">
@@ -418,38 +428,42 @@
             />
           </label>
 
-          <label class="block">
+          <div>
             <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Categoría</span>
-            <input
-              [value]="metaCategory()"
-              (input)="onMetaCategoryInput($event)"
-              placeholder="Ej. Símbolo, letras, animal"
-              list="catalog-categories"
-              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-          </label>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().categories"
+                [value]="metaCategory()"
+                (valueChange)="metaCategory.set($event)"
+                placeholder="Elija o escriba una categoría"
+                customHint="Categoría nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
 
-          <label class="block">
+          <div>
             <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Ubicación corporal</span>
-            <input
-              [value]="metaBodyLocation()"
-              (input)="onMetaBodyLocationInput($event)"
-              placeholder="Ej. Antebrazo derecho"
-              list="catalog-locations"
-              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-          </label>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().bodyLocations"
+                [value]="metaBodyLocation()"
+                (valueChange)="metaBodyLocation.set($event)"
+                placeholder="Elija o escriba una ubicación"
+                customHint="Ubicación nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
 
-          <label class="block">
+          <div class="sm:col-span-2">
             <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Etiquetas</span>
-            <input
-              [value]="metaTags()"
-              (input)="onMetaTagsInput($event)"
-              placeholder="corona, puntas, tinta negra"
-              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-            />
-            <span class="mt-1 block text-[11px] text-slate-500">Separadas por coma. Se guardan en minúsculas y sin repetidos.</span>
-          </label>
+            <div class="mt-1.5">
+              <app-tag-input
+                [value]="metaTags()"
+                [suggestions]="facets().tags"
+                (valueChange)="metaTags.set($event)"
+              />
+            </div>
+          </div>
         </div>
 
         <label class="block">
@@ -491,14 +505,3 @@
     </div>
   </div>
 }
-
-<datalist id="catalog-categories">
-  @for (category of facets().categories; track category) {
-    <option [value]="category"></option>
-  }
-</datalist>
-<datalist id="catalog-locations">
-  @for (location of facets().bodyLocations; track location) {
-    <option [value]="location"></option>
-  }
-</datalist>

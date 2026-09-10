@@ -30,6 +30,7 @@ interface DetectionChip {
   pct: number;
   color: string;
   verdict: Detection['verdict'];
+  matchType: Detection['matchType'];
 }
 
 /**
@@ -44,6 +45,18 @@ interface ConfidenceSummary {
   media: number;
   baja: number;
 }
+
+/**
+ * Cómo se presenta cada clase de coincidencia. El caso que importa distinguir es
+ * `unclassified`: el sistema ya vio ese tatuaje, pero eso no es una pertenencia a
+ * una banda y no puede presentarse con el mismo lenguaje.
+ */
+const MATCH_TYPE_META: Record<Detection['matchType'], { label: string; badge: string } | null> = {
+  band: { label: 'Coincidencia', badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  unclassified: { label: 'Ya visto · sin clasificar', badge: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  review: { label: 'Posible; requiere revisión', badge: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  none: { label: 'Sin coincidencia concluyente', badge: 'bg-slate-100 text-slate-600 ring-slate-200' }
+};
 
 @Component({
   selector: 'app-results',
@@ -63,6 +76,8 @@ export class Results {
   readonly activeMatch = signal(0);
 
   readonly selectedDetectionIds = signal<Set<string>>(new Set());
+  readonly matchTypeMeta = MATCH_TYPE_META;
+
   readonly enrolledDetectionIds = signal<Set<string>>(new Set());
   readonly isEnrolling = signal(false);
   readonly enrollError = signal<string | null>(null);
@@ -107,7 +122,14 @@ export class Results {
   readonly detectionChips = computed<DetectionChip[]>(() =>
     this.imageDetections().map((detection, index) => {
       const pct = Math.round(detection.confidence * 100);
-      return { id: detection.id, index, pct, color: detectionColor(pct), verdict: detection.verdict };
+      return {
+        id: detection.id,
+        index,
+        pct,
+        color: detectionColor(pct),
+        verdict: detection.verdict,
+        matchType: detection.matchType
+      };
     })
   );
 
