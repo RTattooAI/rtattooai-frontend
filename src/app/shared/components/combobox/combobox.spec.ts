@@ -61,6 +61,24 @@ describe('Combobox', () => {
     expect(fixture.componentInstance.isNew()).toBe(false);
   });
 
+  it('encuentra una opción acentuada aunque se escriba sin tildes', () => {
+    const fixture = crear(['Símbolo', 'Corona']);
+    fixture.componentInstance.open();
+    escribir(fixture, 'simbolo');
+
+    expect(fixture.componentInstance.filtered()).toEqual(['Símbolo']);
+  });
+
+  it('no marca como nuevo un valor que solo difiere en la tilde', () => {
+    const fixture = crear(['Símbolo']);
+    fixture.componentInstance.open();
+    escribir(fixture, 'simbolo');
+
+    // Avisar de «categoría nueva» aquí crearía el duplicado «Simbolo»/«Símbolo»
+    // que el vocabulario existe para evitar.
+    expect(fixture.componentInstance.isNew()).toBe(false);
+  });
+
   it('marca como nuevo lo que no está en la lista', () => {
     const fixture = crear(['Los Pulpos']);
     fixture.componentInstance.open();

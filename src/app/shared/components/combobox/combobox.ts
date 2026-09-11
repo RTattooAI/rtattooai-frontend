@@ -14,6 +14,19 @@ import { Icon } from '../../ui';
  * Se avisa explícitamente cuando el valor escrito no existe todavía: registrar una
  * banda nueva por un error de tecleo es justo lo que hay que evitar.
  */
+/**
+ * Clave de comparación sin tildes y en minúsculas. Debe coincidir con la del
+ * servidor (`TextoCanonico.Clave`): si divergen, la pantalla avisa de un valor
+ * nuevo que el servidor luego unifica, o al revés.
+ */
+function sinTildes(valor: string): string {
+  return valor
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 @Component({
   selector: 'app-combobox',
   imports: [Icon],
@@ -41,21 +54,27 @@ export class Combobox {
   readonly display = computed(() => (this.isOpen() ? this.query() : this.value()));
 
   readonly filtered = computed(() => {
-    const term = this.query().trim().toLowerCase();
+    const term = sinTildes(this.query());
     const options = this.options();
     if (term === '') {
       return options;
     }
-    return options.filter((option) => option.toLowerCase().includes(term));
+    return options.filter((option) => sinTildes(option).includes(term));
   });
 
-  /** El valor escrito no coincide con ninguna opción existente. */
+  /**
+   * El valor escrito no coincide con ninguna opción existente.
+   *
+   * Se compara sin tildes: si alguien escribe «simbolo» y la lista ofrece «Símbolo»,
+   * avisar de que es un valor nuevo sería falso, y aceptarlo crearía el duplicado
+   * que el vocabulario existe para evitar.
+   */
   readonly isNew = computed(() => {
-    const term = this.query().trim();
+    const term = sinTildes(this.query());
     if (term === '') {
       return false;
     }
-    return !this.options().some((option) => option.toLowerCase() === term.toLowerCase());
+    return !this.options().some((option) => sinTildes(option) === term);
   });
 
   constructor(private readonly host: ElementRef<HTMLElement>) {}

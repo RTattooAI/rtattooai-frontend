@@ -1,3 +1,4 @@
+import { DecimalPipe } from '@angular/common';
 import {
   Component,
   DestroyRef,
@@ -10,6 +11,7 @@ import {
 } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { AnalysisService } from '../../../core/api';
+import { ConsensusResult, LiveConsensus } from './live-consensus';
 import { AnalysisPreview, PreviewDetection } from '../../../core/models';
 import { Icon } from '../../ui';
 import { confidenceBand, detectionColor } from '../../ui/confidence';
@@ -47,7 +49,7 @@ interface LiveBox {
  */
 @Component({
   selector: 'app-camera-capture',
-  imports: [Icon],
+  imports: [DecimalPipe, Icon],
   templateUrl: './camera-capture.html'
 })
 export class CameraCapture {
@@ -71,6 +73,13 @@ export class CameraCapture {
   readonly liveResult = signal<AnalysisPreview | null>(null);
   readonly liveError = signal<string | null>(null);
 
+  /**
+   * Lo que sostienen varios fotogramas seguidos, que no es lo mismo que lo que dice
+   * el último. Es lo único que la pantalla presenta como identificación; el fotograma
+   * suelto solo sirve para dibujar dónde está la caja.
+   */
+  readonly consensus = signal<ConsensusResult | null>(null);
+
   readonly facingMode = signal<'environment' | 'user'>('environment');
   readonly hasMultipleCameras = signal(false);
 
@@ -79,6 +88,7 @@ export class CameraCapture {
   /** Cajas del modo en vivo, ya escaladas al tamaño en que se está viendo el vídeo. */
   readonly liveBoxes = computed<LiveBox[]>(() => {
     const result = this.liveResult();
+    const consenso = this.consensus();
     const video = this.videoRef()?.nativeElement;
     if (!result || !video || !result.imageWidth || !result.imageHeight) {
       return [];
@@ -89,11 +99,20 @@ export class CameraCapture {
 
     return result.detections.map((detection) => {
       const best = detection.matches[0];
-      const pct = best ? Math.round(best.similarity * 100) : 0;
+      // La caja solo nombra una banda cuando el consenso la sostiene y se refiere a
+      // este mismo candidato. Antes ponia el nombre en cuanto un fotograma lo daba,
+      // y ese nombre parpadeaba y cambiaba: se leia como una identificacion cuando
+      // era una lectura suelta.
+      const acuerdo = consenso && consenso.stable && best && consenso.catalogId === best.catalogId
+        ? consenso
+        : null;
+      const pct = acuerdo ? Math.round(acuerdo.similarity * 100) : 0;
       const label =
         detection.verdict === 'no_match' || !best
           ? 'Sin coincidencia'
-          : `${best.band} · ${pct}% (${confidenceBand(pct).label})`;
+          : acuerdo
+            ? `${acuerdo.band} · ${pct}% (${confidenceBand(pct).label})`
+            : 'Analizando…';
 
       return {
         left: `${detection.bbox.x * scaleX}px`,
@@ -109,6 +128,7 @@ export class CameraCapture {
 
   private stream: MediaStream | null = null;
   private liveRunning = false;
+  private readonly acumulador = new LiveConsensus();
 
   constructor() {
     this.destroyRef.onDestroy(() => this.stopStream());
@@ -245,6 +265,8 @@ export class CameraCapture {
         try {
           const result = await firstValueFrom(this.analysisService.preview(blob));
           this.liveResult.set(result);
+          this.acumulador.push(result);
+          this.consensus.set(this.acumulador.result());
           this.liveError.set(null);
           await delay(LIVE_MIN_INTERVAL_MS);
         } catch (err) {
@@ -260,6 +282,8 @@ export class CameraCapture {
     } finally {
       this.liveRunning = false;
       this.liveResult.set(null);
+      this.acumulador.reset();
+      this.consensus.set(null);
     }
   }
 
@@ -275,6 +299,8 @@ export class CameraCapture {
   private stopStream(): void {
     this.liveMode.set(false);
     this.liveResult.set(null);
+    this.acumulador.reset();
+    this.consensus.set(null);
 
     this.stream?.getTracks().forEach((track) => track.stop());
     this.stream = null;

@@ -49,6 +49,34 @@
         <span class="text-[10px] uppercase tracking-wider text-white font-medium">Asistencia en vivo</span>
       </div>
 
+      <!--
+        Lo que sostienen varios fotogramas. Se separa a proposito de las cajas: la caja
+        dice donde, esto dice quien. Un fotograma suelto no basta para nombrar a nadie.
+      -->
+      @if (consensus(); as acuerdo) {
+        <div class="absolute bottom-3 left-3 max-w-[70%] bg-navy-950/85 backdrop-blur ring-1 ring-white/10 rounded-md px-3 py-2">
+          @if (acuerdo.stable) {
+            <div class="flex items-center gap-2">
+              <span
+                class="w-2 h-2 rounded-full"
+                [class]="acuerdo.verdict === 'match' ? 'bg-emerald-400' : 'bg-amber-400'"
+              ></span>
+              <span class="text-[12px] font-semibold text-white">{{ acuerdo.band || 'Sin clasificar' }}</span>
+              <span class="text-[11px] text-white/70 tabular">{{ acuerdo.similarity * 100 | number: '1.0-0' }}%</span>
+            </div>
+            <p class="text-[10px] text-white/60 mt-0.5">
+              Coincide en {{ acuerdo.seenIn }} de los últimos {{ acuerdo.frames }} fotogramas ·
+              {{ acuerdo.verdict === 'match' ? 'coincidencia' : 'requiere revisión' }}
+            </p>
+          } @else {
+            <p class="text-[11px] text-white/80">Analizando…</p>
+            <p class="text-[10px] text-white/55 mt-0.5">
+              Mantenga el encuadre: hace falta que coincida en varios fotogramas seguidos.
+            </p>
+          }
+        </div>
+      }
+
       @if (liveResult(); as result) {
         <div class="absolute bottom-3 right-3 bg-navy-950/80 backdrop-blur ring-1 ring-white/10 rounded px-2 py-1 text-[10px] text-white/80 font-mono">
           {{ result.processingMs }} ms · {{ result.detections.length }} detección(es)
