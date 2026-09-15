@@ -635,3 +635,68 @@ Los umbrales viajan con la respuesta para que el cliente no tenga que suponerlos
 | `det_conf` | 0.15 | 0.60 | Con 0.15 el detector marcaba algo en el **52 %** de las fotografías de personas sin tatuajes, sobre todo uñas decoradas |
 
 La escala de similitud del frontend (`SIMILARITY_STRONG` / `SIMILARITY_THRESHOLD`) se mueve con estos valores: son los mismos cortes, no una escala aparte. Si se separan, la pantalla dice una cosa y el sistema hace otra.
+
+---
+
+## I. Coherencia entre catálogo y galería (setiembre 2026)
+
+El catálogo (base de datos) y la galería (vectores del servicio de inferencia) viven en sitios distintos y ninguna transacción los abarca. El 11/09/2026 eso produjo una atribución falsa: al reconstruir la galería el 10/09 quedó fuera el tatuaje `tat_00026` del catálogo; al enrolar otro tatuaje, la galería volvió a repartir ese código, la base rechazó la ficha por código duplicado y los vectores se quedaron. Desde entonces ese tatuaje coincidía con la ficha del primero y con su banda. Esta sección cierra las dos puertas y añade una forma de auditarlo.
+
+### `POST /enroll` (servicio de inferencia) acepta `catalog_id`
+
+- `catalog_id` (opcional): código con el que se guardan los vectores. Si ya tiene vectores, responde **409** sin tocar la galería. Sin él, la galería asigna el siguiente libre, como antes.
+- Cada vista guarda `image_sha256`, la huella SHA-256 de los bytes recibidos: es la misma que el backend guarda en `ImagenHash`, de modo que ambos lados pueden comprobar que un código corresponde a la misma imagen.
+
+### `GET /gallery` (servicio de inferencia, INTERNO)
+
+```json
+{
+  "entries": [ { "catalog_id": "tat_00026", "views": 5, "image_sha256": "9f2c…" } ],
+  "shared_vectors": [ ["tat_00026", "tat_00027"] ]
+}
+```
+
+`image_sha256` es `null` en vistas anteriores a que existiera. `shared_vectors` agrupa códigos distintos que contienen exactamente el mismo vector: dos tatuajes distintos no lo producen, así que indica la misma imagen enrolada dos veces.
+
+### `DELETE /gallery/{catalog_id}` (servicio de inferencia, INTERNO)
+
+Quita todas las vistas del código. **200** `{ "catalog_id": "…", "removed_views": 5 }`; **404** si no tenía ninguna. Antes de escribir deja una copia fechada del archivo de la galería.
+
+### Enrolamiento en el backend
+
+`POST /api/catalog` y `POST /api/analyses/{id}/enroll` calculan el código a partir de los que existen en el catálogo, lo piden explícitamente, saltan al siguiente si la galería responde 409 y, si la ficha no llega a guardarse, retiran los vectores con `DELETE /gallery/{catalog_id}`. El contrato hacia el frontend no cambia.
+
+### `GET /api/models/gallery` (supervisor/admin)
+
+```json
+{
+  "serviceAvailable": true,
+  "catalogEntries": 27,
+  "galleryIdentities": 27,
+  "missingInGallery": [],
+  "orphansInGallery": [],
+  "imageMismatch": ["tat_00026"],
+  "sharedVectors": [["tat_00026", "tat_00027"]],
+  "unverified": 25,
+  "consistent": false
+}
+```
+
+- `missingInGallery`: fichas sin vectores; el sistema nunca las reconocerá.
+- `orphansInGallery`: vectores sin ficha.
+- `imageMismatch`: la huella de los vectores no es la de la imagen de la ficha.
+- `unverified`: códigos presentes en ambos lados sin huella de imagen; no se pueden cotejar imagen a imagen.
+
+### `POST /api/models/gallery/repair` (admin)
+
+Vuelve a enrolar desde la imagen guardada las fichas sin vectores, con vectores de otra imagen o con vectores compartidos —quitando antes los que tuvieran— y quita los vectores sin ficha. Los códigos sin huella que no tienen ningún problema detectable no se tocan: los de la galería base salen de varias imágenes del dataset y enrolarlos desde una sola los empeoraría.
+
+```json
+{ "reenrolled": ["tat_00026", "tat_00027"], "removed": [], "failed": [], "after": { "consistent": true, "…": "…" } }
+```
+
+**400** si el servicio de inferencia no responde o si el catálogo está vacío: con el catálogo vacío toda la galería parecería huérfana y se borraría.
+
+### Detector servido en `.pt`
+
+Desde el 14/09/2026 `GET /info` informa `detector: yolov8m_hardneg.pt` y la versión pasa a `yolov8m-hardneg-pt + dinov2-vits14 + head-v2`. Son los mismos pesos que el ONNX anterior, pero es el formato con el que se calibró `det_conf = 0.60`, y en fotografías no cuadradas daba confianzas distintas (ver `RTattooAI_BITACORA_EXPERIMENTOS.md`, E-13).
