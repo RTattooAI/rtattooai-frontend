@@ -689,13 +689,15 @@ Quita todas las vistas del código. **200** `{ "catalog_id": "…", "removed_vie
 
 ### `POST /api/models/gallery/repair` (admin)
 
-Vuelve a enrolar desde la imagen guardada las fichas sin vectores, con vectores de otra imagen o con vectores compartidos —quitando antes los que tuvieran— y quita los vectores sin ficha. Los códigos sin huella que no tienen ningún problema detectable no se tocan: los de la galería base salen de varias imágenes del dataset y enrolarlos desde una sola los empeoraría.
+Vuelve a enrolar desde la imagen guardada las fichas sin vectores, con vectores de otra imagen o con vectores compartidos —quitando antes los que tuvieran. Los códigos sin huella que no tienen ningún problema detectable no se tocan: los de la galería base salen de varias imágenes del dataset y enrolarlos desde una sola los empeoraría.
+
+**Nunca quita los vectores sin ficha (`orphansInGallery`).** No tener ficha en el catálogo no significa que sobren: pasó el 15/09/2026 en un despliegue cuyo catálogo nunca llegó a tener las 25 identidades base de la galería —viven ahí solo como vectores, sembrados aparte—, y reparar borró las 25 de un pulsazo. `removed` queda siempre vacío; se conserva en la respuesta por si en el futuro se ofrece una acción de limpieza aparte, explícita.
 
 ```json
 { "reenrolled": ["tat_00026", "tat_00027"], "removed": [], "failed": [], "after": { "consistent": true, "…": "…" } }
 ```
 
-**400** si el servicio de inferencia no responde o si el catálogo está vacío: con el catálogo vacío toda la galería parecería huérfana y se borraría.
+**400** si el servicio de inferencia no responde o si el catálogo está vacío: con el catálogo vacío toda la galería parecería huérfana.
 
 ### Detector servido en `.pt`
 

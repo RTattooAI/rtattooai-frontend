@@ -47,14 +47,17 @@ export class AdminModels implements OnInit {
     (this.inventory()?.versions ?? []).map((item) => ({ item, date: parseApiDate(item.registeredAt) }))
   );
 
-  /** Códigos que la reparación tocaría, sin contar dos veces los que aparecen en varias listas. */
+  /**
+   * Códigos que la reparación volvería a enrolar, sin contar dos veces los que aparecen
+   * en varias listas. Los huérfanos NO entran aquí: la reparación nunca los toca (no
+   * tener ficha no significa que sobren — ver [[galeria-catalogo-coherencia]]).
+   */
   readonly affectedCodes = computed(() => {
     const g = this.gallery();
     if (!g) {
       return 0;
     }
-    return new Set([...g.missingInGallery, ...g.orphansInGallery, ...g.imageMismatch, ...g.sharedVectors.flat()])
-      .size;
+    return new Set([...g.missingInGallery, ...g.imageMismatch, ...g.sharedVectors.flat()]).size;
   });
 
   ngOnInit(): void {

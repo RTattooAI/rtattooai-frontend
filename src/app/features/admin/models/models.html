@@ -128,7 +128,10 @@
               </p>
             }
             @if (g.orphansInGallery.length) {
-              <p>Vectores sin ficha en el catálogo: <span class="font-mono">{{ g.orphansInGallery.join(', ') }}</span></p>
+              <p>
+                Vectores sin ficha en el catálogo: <span class="font-mono">{{ g.orphansInGallery.join(', ') }}</span>.
+                Reparar no los toca: no tener ficha no significa que sobren.
+              </p>
             }
           </div>
 
@@ -136,8 +139,8 @@
             @if (confirmingRepair()) {
               <div class="mt-3 px-3 py-3 rounded-md border border-slate-200 bg-slate-50 text-[12.5px] text-slate-700">
                 <p>
-                  Se volverán a enrolar desde su imagen guardada las fichas afectadas y se quitarán los vectores sin ficha
-                  ({{ affectedCodes() }} códigos). El servicio guarda una copia de la galería antes de cada borrado.
+                  Se volverán a enrolar desde su imagen guardada las fichas afectadas ({{ affectedCodes() }} códigos).
+                  Los vectores sin ficha no se tocan. El servicio guarda una copia de la galería antes de cada borrado.
                 </p>
                 <div class="mt-3 flex items-center gap-2 justify-end">
                   <button type="button" (click)="cancelRepair()" class="px-3 py-1.5 text-[12.5px] font-medium text-slate-600 hover:bg-slate-100 rounded-md">
@@ -181,10 +184,6 @@
           Reparación: {{ r.reenrolled.length }} vueltos a enrolar
           @if (r.reenrolled.length) {
             (<span class="font-mono">{{ r.reenrolled.join(', ') }}</span>)
-          }
-          · {{ r.removed.length }} quitados
-          @if (r.removed.length) {
-            (<span class="font-mono">{{ r.removed.join(', ') }}</span>)
           }
           · {{ r.failed.length }} fallos.
         </p>
