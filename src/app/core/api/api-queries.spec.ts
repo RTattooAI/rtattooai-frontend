@@ -6,6 +6,7 @@ import { AnalysisService } from './analysis.service';
 import { AuditService } from './audit.service';
 import { BandsService } from './bands.service';
 import { CatalogService } from './catalog.service';
+import { ModelsService } from './models.service';
 import { UsersService } from './users.service';
 
 /**
@@ -80,6 +81,23 @@ describe('construcción de peticiones', () => {
       // En una mezcla, el campo antiguo no puede decir «camara» de todo el análisis.
       expect(body.get('source')).toBe('archivo');
       req.flush({ id: 'a1', detections: [] });
+    });
+  });
+
+  describe('coherencia entre catálogo y galería', () => {
+    it('consulta la coherencia y repara con un POST explícito', () => {
+      const servicio = TestBed.inject(ModelsService);
+
+      servicio.galleryConsistency().subscribe();
+      const consulta = http.expectOne('/api/models/gallery');
+      expect(consulta.request.method).toBe('GET');
+      consulta.flush({});
+
+      // Reparar reescribe vectores: nunca debe dispararse con una lectura.
+      servicio.repairGallery().subscribe();
+      const reparacion = http.expectOne('/api/models/gallery/repair');
+      expect(reparacion.request.method).toBe('POST');
+      reparacion.flush({ reenrolled: [], removed: [], failed: [], after: {} });
     });
   });
 
