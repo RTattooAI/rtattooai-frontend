@@ -6,3 +6,4 @@ export * from './camera-capture/camera-capture';
 export * from './image-editor/image-editor';
 export * from './combobox/combobox';
 export * from './tag-input/tag-input';
+export * from './change-password-dialog/change-password-dialog';

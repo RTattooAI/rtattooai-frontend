@@ -3,6 +3,7 @@ import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } fro
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs';
 import { AuthService } from '../../../core/auth';
+import { ChangePasswordDialog } from '../../components/change-password-dialog/change-password-dialog';
 import { Icon, LogoMark } from '../../ui';
 
 interface NavLink {
@@ -24,7 +25,7 @@ const INACTIVE_NAV = 'text-navy-200 hover:bg-white/5 hover:text-white';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, LogoMark],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, LogoMark, ChangePasswordDialog],
   templateUrl: './shell.html'
 })
 export class Shell {
@@ -33,6 +34,9 @@ export class Shell {
   private readonly destroyRef = inject(DestroyRef);
 
   readonly currentUser = this.authService.currentUser;
+
+  readonly showChangePassword = signal(false);
+  readonly passwordChanged = signal(false);
 
   readonly operacionNav: NavLink[] = [
     { link: '/upload', icon: 'scan-search', label: 'Nuevo análisis' },
@@ -119,6 +123,21 @@ export class Shell {
 
   closeNav(): void {
     this.navOpen.set(false);
+  }
+
+  openChangePassword(): void {
+    this.passwordChanged.set(false);
+    this.showChangePassword.set(true);
+    this.closeNav();
+  }
+
+  closeChangePassword(): void {
+    this.showChangePassword.set(false);
+  }
+
+  onPasswordChanged(): void {
+    this.showChangePassword.set(false);
+    this.passwordChanged.set(true);
   }
 
   onLogout(): void {
