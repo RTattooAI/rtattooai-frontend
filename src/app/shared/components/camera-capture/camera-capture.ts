@@ -12,6 +12,7 @@ import {
 import { firstValueFrom } from 'rxjs';
 import { AnalysisService } from '../../../core/api';
 import { ConsensusResult, LiveConsensus } from './live-consensus';
+import { LIVE_MIN_PERIOD_MS, pauseBeforeNextFrame } from './live-pacing';
 import { AnalysisPreview, PreviewDetection } from '../../../core/models';
 import { Icon } from '../../ui';
 import { confidenceBand, detectionColor } from '../../ui/confidence';
@@ -19,9 +20,6 @@ import { confidenceBand, detectionColor } from '../../ui/confidence';
 /** Lado más largo del fotograma que se envía en el modo en vivo. */
 const LIVE_FRAME_MAX_SIDE = 640;
 const LIVE_FRAME_QUALITY = 0.6;
-
-/** Pausa mínima entre fotogramas, para no saturar al servicio cuando responde rápido. */
-const LIVE_MIN_INTERVAL_MS = 250;
 
 /** Espera tras un rechazo por límite de peticiones. */
 const LIVE_BACKOFF_MS = 3000;
@@ -44,8 +42,9 @@ interface LiveBox {
  *
  * El modo en vivo no guarda nada: envía un fotograma reducido, dibuja el resultado y lo
  * descarta. Sirve para encuadrar bien antes de capturar, no para sustentar conclusiones.
- * Un fotograma por vez, en serie: sin esta disciplina el navegador encolaría peticiones
- * más rápido de lo que el servicio puede resolverlas.
+ * Un fotograma por vez, en serie, y nunca más de uno cada `LIVE_MIN_PERIOD_MS`: sin esta
+ * disciplina el navegador encolaría peticiones más rápido de lo que el servicio puede
+ * resolverlas, o agotaría el límite de peticiones del backend (ver `live-pacing.ts`).
  */
 @Component({
   selector: 'app-camera-capture',
@@ -241,7 +240,8 @@ export class CameraCapture {
 
   /**
    * Bucle del modo en vivo: un fotograma a la vez, esperando siempre la respuesta
-   * anterior. Así el ritmo lo marca el servicio y no se acumulan peticiones.
+   * anterior y respetando un periodo mínimo entre el inicio de un fotograma y el del
+   * siguiente. Así no se acumulan peticiones ni se agota el límite del servidor.
    */
   private async runLiveLoop(): Promise<void> {
     if (this.liveRunning) {
@@ -256,9 +256,10 @@ export class CameraCapture {
           break;
         }
 
+        const inicio = Date.now();
         const blob = await grabFrame(video, LIVE_FRAME_MAX_SIDE, LIVE_FRAME_QUALITY);
         if (!blob) {
-          await delay(LIVE_MIN_INTERVAL_MS);
+          await delay(LIVE_MIN_PERIOD_MS);
           continue;
         }
 
@@ -268,7 +269,7 @@ export class CameraCapture {
           this.acumulador.push(result);
           this.consensus.set(this.acumulador.result());
           this.liveError.set(null);
-          await delay(LIVE_MIN_INTERVAL_MS);
+          await delay(pauseBeforeNextFrame(inicio, Date.now()));
         } catch (err) {
           const status = (err as { status?: number }).status;
           this.liveError.set(

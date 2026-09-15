@@ -341,7 +341,8 @@ Un caso real necesita varias tomas del mismo detenido: distintas zonas del cuerp
 
 **Request:** `multipart/form-data`
 - `images`: el campo se repite una vez por fotografía (entre 1 y 10). Se sigue aceptando `image` como nombre alternativo, por compatibilidad con la versión de una sola imagen.
-- `source`: `archivo` (por defecto) o `camara`, según de dónde provengan las tomas.
+- `sources`: procedencia de cada fotografía (`archivo` | `camara`), repetido una vez por imagen y **en el mismo orden que `images`**. Un mismo análisis puede mezclar fotografías cargadas y tomas de la cámara, y cada una queda registrada con la suya. Si falta, o no coincide en número con las imágenes, se usa `source` para todas.
+- `source`: valor común para todo el análisis, `archivo` (por defecto) o `camara`. Se conserva por compatibilidad; con él solo, una mezcla quedaba registrada entera como `archivo`.
 - `personName`, `documentId`, `notes`: sin cambios.
 
 Formatos admitidos: **JPG, PNG y WEBP** (RF-01), hasta 10 MB y 80 MP por imagen. Si alguna imagen es inválida o se superan las 10, se responde **400** y **no se crea el análisis**: nunca queda un caso a medias.
@@ -414,7 +415,7 @@ Modo asistido en vivo. Analiza un fotograma y responde **sin persistir absolutam
 ```
 Las detecciones **no tienen identificador** porque no existen en la base de datos: no pueden validarse ni enrolarse. **503** si el servicio de inferencia no responde, para que el cliente omita ese fotograma y siga.
 
-**Límite de peticiones:** política propia de 90 por minuto y por IP, más alta que la de una acción normal porque el cliente la invoca en bucle. Con una latencia de inferencia cercana a un segundo, el ritmo real ronda un fotograma por segundo.
+**Límite de peticiones:** política propia de 90 por minuto y por IP, más alta que la de una acción normal porque el cliente la invoca en bucle. El cliente envía un fotograma por vez y deja **al menos 700 ms entre el inicio de uno y el del siguiente** (≈ 86 por minuto), con independencia de la latencia: desde que la inferencia corre en GPU la respuesta llega en unos 200 ms, y una pausa fija tras la respuesta agotaba el cupo antes de terminar el minuto.
 
 ### Cabeceras
 
