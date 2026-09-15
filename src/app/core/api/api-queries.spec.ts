@@ -66,6 +66,23 @@ describe('construcción de peticiones', () => {
     });
   });
 
+  describe('análisis con cargas y tomas de la cámara (HU0020)', () => {
+    it('envía la procedencia de cada fotografía en el mismo orden que las imágenes', () => {
+      const carga = new File(['a'], 'carga.jpg', { type: 'image/jpeg' });
+      const toma = new File(['b'], 'toma.jpg', { type: 'image/jpeg' });
+
+      TestBed.inject(AnalysisService).create([carga, toma], '', '', '', ['archivo', 'camara']).subscribe();
+
+      const req = http.expectOne((r) => r.url === '/api/analyses');
+      const body = req.request.body as FormData;
+      expect(body.getAll('images')).toHaveLength(2);
+      expect(body.getAll('sources')).toEqual(['archivo', 'camara']);
+      // En una mezcla, el campo antiguo no puede decir «camara» de todo el análisis.
+      expect(body.get('source')).toBe('archivo');
+      req.flush({ id: 'a1', detections: [] });
+    });
+  });
+
   describe('catálogo (RF-09)', () => {
     it('envía los filtros descriptivos', () => {
       TestBed.inject(CatalogService)

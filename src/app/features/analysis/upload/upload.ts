@@ -135,17 +135,13 @@ export class Upload {
     this.isSubmitting.set(true);
     this.error.set(null);
 
-    // El origen del análisis es "camara" solo si todas las tomas vienen de ahí; en una
-    // mezcla prevalece la carga de archivos, que es el caso general.
-    const source: ImageSource = images.every((i) => i.source === 'camara') ? 'camara' : 'archivo';
-
     this.analysisService
       .create(
         images.map((i) => i.file),
         this.personName().trim(),
         this.documentId().trim(),
         this.notes().trim(),
-        source
+        images.map((i) => i.source)
       )
       .subscribe({
         next: (analysis) => {

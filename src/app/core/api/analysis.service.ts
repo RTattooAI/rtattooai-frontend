@@ -46,19 +46,26 @@ function withSortedMatches(analysis: Analysis): Analysis {
 export class AnalysisService {
   private readonly http = inject(HttpClient);
 
-  /** Un análisis admite varias fotografías del mismo caso; todas viajan en `images`. */
+  /**
+   * Un análisis admite varias fotografías del mismo caso; todas viajan en `images`.
+   * `sources` lleva la procedencia de cada una, en el mismo orden: un caso mezcla
+   * cargas y tomas de la cámara, y cada foto debe quedar registrada con la suya.
+   */
   create(
     images: File[],
     personName?: string,
     documentId?: string,
     notes?: string,
-    source: ImageSource = 'archivo'
+    sources: ImageSource[] = []
   ): Observable<Analysis> {
     const formData = new FormData();
-    for (const image of images) {
+    images.forEach((image, i) => {
       formData.append('images', image);
-    }
-    formData.append('source', source);
+      formData.append('sources', sources[i] ?? 'archivo');
+    });
+    // Campo anterior, único para todo el análisis: lo sigue leyendo un backend que
+    // todavía no conozca `sources`.
+    formData.append('source', sources.length > 0 && sources.every((s) => s === 'camara') ? 'camara' : 'archivo');
     if (personName) formData.append('personName', personName);
     if (documentId) formData.append('documentId', documentId);
     if (notes) formData.append('notes', notes);
