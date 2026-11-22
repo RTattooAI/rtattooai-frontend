@@ -154,6 +154,21 @@
       </ul>
     </div>
 
+    @if (pendingAnalysisId(); as pendingId) {
+      <div class="px-3 py-2.5 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-900 flex items-start gap-2" role="alert">
+        <app-icon name="user-check" [size]="14" class="shrink-0 mt-0.5" />
+        <div class="flex-1">
+          <p>
+            Su consulta anterior tiene detecciones sin validar. Registre su decisión sobre cada una
+            (validar, solicitar revisión o descartar) antes de realizar una nueva consulta.
+          </p>
+          <a [routerLink]="['/results', pendingId]" class="mt-1.5 inline-flex items-center gap-1 font-semibold text-amber-800 hover:underline">
+            Ir a validar la consulta anterior <app-icon name="arrow-right" [size]="12" />
+          </a>
+        </div>
+      </div>
+    }
+
     @if (error()) {
       <p class="px-3 py-2.5 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700 flex items-center gap-2" role="alert">
         <app-icon name="triangle-alert" [size]="14" class="shrink-0" />

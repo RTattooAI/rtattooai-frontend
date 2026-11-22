@@ -77,6 +77,66 @@
       </div>
     }
 
+    @if (item.status === 'completed' && detectionCount() > 0) {
+      <div class="px-4 sm:px-8 pb-4">
+        @if (pendingCount() > 0) {
+          <div class="px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 flex flex-col md:flex-row md:items-center gap-3" role="status">
+            <div class="flex items-start gap-2 flex-1 text-[12.5px] text-amber-900">
+              <app-icon name="user-check" [size]="16" class="shrink-0 mt-0.5" />
+              <p>
+                <strong>{{ pendingCount() }} {{ pendingCount() === 1 ? 'detección pendiente' : 'detecciones pendientes' }} de validación.</strong>
+                Registre su decisión sobre cada una (validar, solicitar revisión o descartar); hasta entonces no podrá
+                realizar una nueva consulta.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                type="button"
+                (click)="goToNextPending()"
+                class="text-[12px] font-semibold text-amber-900 bg-white ring-1 ring-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-md flex items-center gap-1"
+              >
+                Ir a la siguiente pendiente <app-icon name="arrow-right" [size]="12" />
+              </button>
+              @if (confirmDismissRest()) {
+                <button
+                  type="button"
+                  (click)="dismissRemaining()"
+                  [disabled]="isDismissingRest()"
+                  class="text-[12px] font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 px-3 py-1.5 rounded-md flex items-center gap-1"
+                >
+                  @if (isDismissingRest()) {
+                    <app-icon name="loader" [size]="12" class="spin" /> Descartando…
+                  } @else {
+                    Confirmar: descartar {{ pendingCount() }}
+                  }
+                </button>
+                <button type="button" (click)="cancelDismissRest()" class="text-[12px] text-slate-600 hover:text-slate-900 px-2 py-1.5">Cancelar</button>
+              } @else {
+                <button
+                  type="button"
+                  (click)="dismissRemaining()"
+                  class="text-[12px] font-medium text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-md flex items-center gap-1"
+                  title="Para detecciones que no son tatuajes o no aportan al caso"
+                >
+                  <app-icon name="thumbs-down" [size]="12" /> Descartar las pendientes
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center gap-3">
+            <p class="flex items-center gap-2 flex-1 text-[12.5px] text-emerald-800">
+              <app-icon name="check-circle-2" [size]="16" class="shrink-0" />
+              Todas las detecciones de esta consulta tienen una decisión registrada.
+            </p>
+            <a routerLink="/upload" class="text-[12px] font-semibold text-white bg-navy-800 hover:bg-navy-900 px-3 py-1.5 rounded-md flex items-center gap-1 shrink-0">
+              <app-icon name="scan-search" [size]="12" /> Nueva consulta
+            </a>
+          </div>
+        }
+      </div>
+    }
+
     @switch (item.status) {
       @case ('processing') {
         <div class="px-4 sm:px-8 pb-8">
@@ -426,8 +486,12 @@
                         <button class="text-[11px] font-medium text-accent hover:bg-accent/10 px-2 py-1 rounded flex items-center gap-1">
                           <app-icon name="eye" [size]="12" /> Ver ficha
                         </button>
-                        <button class="text-[11px] font-medium text-slate-600 hover:bg-slate-100 px-2 py-1 rounded flex items-center gap-1">
-                          <app-icon name="git-compare" [size]="12" /> Comparar
+                        <button
+                          type="button"
+                          (click)="$event.stopPropagation(); openCompare(vm.rank - 1)"
+                          class="text-[11px] font-semibold text-accent hover:bg-accent/10 px-2 py-1 rounded flex items-center gap-1"
+                        >
+                          <app-icon name="git-compare" [size]="12" /> Comparar lado a lado
                         </button>
                         <button class="text-[11px] font-medium text-slate-600 hover:bg-slate-100 px-2 py-1 rounded flex items-center gap-1 ml-auto">
                           <app-icon name="flag" [size]="12" /> Marcar
@@ -471,4 +535,16 @@
       }
     }
   </div>
+
+  @if (isComparing() && activeDet() && activeImage() && activeMatchItem()) {
+    <app-tattoo-compare
+      [imageUrl]="activeImage()!.imageUrl"
+      [imageWidth]="activeImage()!.width ?? 1"
+      [imageHeight]="activeImage()!.height ?? 1"
+      [bbox]="activeDet()!.bbox"
+      [match]="activeMatchItem()!"
+      [detectionLabel]="'Detección ' + (activeDetection() + 1)"
+      (closed)="closeCompare()"
+    />
+  }
 }

@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { CameraCapture, ImageDropzone, ImageEditor } from '../../../shared/components';
 import { Icon } from '../../../shared/ui';
 import { AnalysisService } from '../../../core/api';
@@ -16,7 +16,7 @@ interface PendingImage {
 
 @Component({
   selector: 'app-upload',
-  imports: [ImageDropzone, CameraCapture, ImageEditor, Icon],
+  imports: [ImageDropzone, CameraCapture, ImageEditor, Icon, RouterLink],
   templateUrl: './upload.html'
 })
 export class Upload {
@@ -31,6 +31,8 @@ export class Upload {
 
   readonly isSubmitting = signal(false);
   readonly error = signal<string | null>(null);
+  /** Consulta anterior que el perito todavía no validó; mientras exista, no se analiza otra. */
+  readonly pendingAnalysisId = signal<string | null>(null);
   readonly personName = signal('');
   readonly documentId = signal('');
   readonly notes = signal('');
@@ -134,6 +136,7 @@ export class Upload {
 
     this.isSubmitting.set(true);
     this.error.set(null);
+    this.pendingAnalysisId.set(null);
 
     this.analysisService
       .create(
@@ -150,6 +153,10 @@ export class Upload {
         },
         error: (err) => {
           this.isSubmitting.set(false);
+          if (err.status === 409 && err.error?.pendingAnalysisId) {
+            this.pendingAnalysisId.set(err.error.pendingAnalysisId);
+            return;
+          }
           this.error.set(err.error?.error ?? 'No se pudieron enviar las imágenes. Intente de nuevo.');
         }
       });

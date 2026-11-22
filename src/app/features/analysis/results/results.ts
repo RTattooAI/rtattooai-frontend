@@ -2,9 +2,10 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
+import { forkJoin } from 'rxjs';
 import { AnalysisService } from '../../../core/api';
 import { Analysis, AnalysisImage, Detection, Match, ValidationStatus } from '../../../core/models';
-import { BboxOverlay, ConfidenceSemaforo, DisclaimerBanner } from '../../../shared/components';
+import { BboxOverlay, ConfidenceSemaforo, DisclaimerBanner, TattooCompare } from '../../../shared/components';
 import {
   Icon,
   TattooThumb,
@@ -60,7 +61,7 @@ const MATCH_TYPE_META: Record<Detection['matchType'], { label: string; badge: st
 
 @Component({
   selector: 'app-results',
-  imports: [DecimalPipe, RouterLink, Icon, TattooThumb, BboxOverlay, ConfidenceSemaforo, DisclaimerBanner],
+  imports: [DecimalPipe, RouterLink, Icon, TattooThumb, BboxOverlay, ConfidenceSemaforo, DisclaimerBanner, TattooCompare],
   templateUrl: './results.html'
 })
 export class Results {
@@ -89,6 +90,13 @@ export class Results {
 
   readonly isExportingPdf = signal(false);
   readonly pdfExportError = signal<string | null>(null);
+
+  /** Comparación lado a lado abierta con el candidato seleccionado. */
+  readonly isComparing = signal(false);
+
+  /** Segundo clic de confirmación para descartar en bloque las detecciones pendientes. */
+  readonly confirmDismissRest = signal(false);
+  readonly isDismissingRest = signal(false);
 
   readonly isRetrying = signal(false);
   readonly retryError = signal<string | null>(null);
@@ -134,6 +142,15 @@ export class Results {
   );
 
   readonly selectedCount = computed(() => this.selectedDetectionIds().size);
+
+  /**
+   * Detecciones sin decisión del perito. Mientras haya alguna, el backend no deja
+   * abrir otra consulta: cada resultado se cierra con una validación.
+   */
+  readonly pendingDetections = computed(() => this.detections().filter((d) => d.validationStatus === 'pending'));
+  readonly pendingCount = computed(() => this.pendingDetections().length);
+
+  readonly activeMatchItem = computed<Match | null>(() => this.activeDet()?.matches[this.activeMatch()] ?? null);
 
   readonly matchVms = computed<MatchVm[]>(() =>
     (this.activeDet()?.matches ?? []).slice(0, 5).map((match, index) => {
@@ -228,6 +245,7 @@ export class Results {
           detections: item.detections.map((d) => (d.id === updated.id ? updated : d))
         });
         this.validationNotesDraft.set(updated.validationNotes ?? '');
+        this.goToNextPending();
       },
       error: (err) => {
         this.isValidating.set(false);
@@ -238,6 +256,71 @@ export class Results {
 
   selectMatch(index: number): void {
     this.activeMatch.set(index);
+  }
+
+  openCompare(index: number): void {
+    this.activeMatch.set(index);
+    this.isComparing.set(true);
+  }
+
+  closeCompare(): void {
+    this.isComparing.set(false);
+  }
+
+  /** Lleva a la siguiente detección sin decisión, aunque esté en otra fotografía. */
+  goToNextPending(): void {
+    const pendiente = this.pendingDetections()[0];
+    if (!pendiente) {
+      return;
+    }
+    const imageIndex = this.images().findIndex((i) => i.id === pendiente.imageId);
+    if (imageIndex >= 0 && imageIndex !== this.activeImageIndex()) {
+      this.activeImageIndex.set(imageIndex);
+    }
+    const detIndex = this.imageDetections().findIndex((d) => d.id === pendiente.id);
+    if (detIndex >= 0) {
+      this.selectDetection(detIndex);
+    }
+  }
+
+  /** Descarta de una vez las detecciones que quedan pendientes (p. ej. falsos positivos). */
+  dismissRemaining(): void {
+    const item = this.analysis();
+    const pendientes = this.pendingDetections();
+    if (!item || pendientes.length === 0 || this.isDismissingRest()) {
+      return;
+    }
+    if (!this.confirmDismissRest()) {
+      this.confirmDismissRest.set(true);
+      return;
+    }
+
+    this.isDismissingRest.set(true);
+    this.validationError.set(null);
+
+    forkJoin(
+      pendientes.map((d) =>
+        this.analysisService.validateDetection(item.id, d.id, 'dismissed', 'Descartada en bloque por el perito.')
+      )
+    ).subscribe({
+      next: (actualizadas) => {
+        const porId = new Map(actualizadas.map((d) => [d.id, d]));
+        const actual = this.analysis() ?? item;
+        this.analysis.set({ ...actual, detections: actual.detections.map((d) => porId.get(d.id) ?? d) });
+        this.isDismissingRest.set(false);
+        this.confirmDismissRest.set(false);
+        this.validationNotesDraft.set(this.activeDet()?.validationNotes ?? '');
+      },
+      error: (err) => {
+        this.isDismissingRest.set(false);
+        this.confirmDismissRest.set(false);
+        this.validationError.set(err.error?.error ?? 'No se pudieron descartar las detecciones pendientes.');
+      }
+    });
+  }
+
+  cancelDismissRest(): void {
+    this.confirmDismissRest.set(false);
   }
 
   isSelectedForEnroll(detectionId: string): boolean {
@@ -334,6 +417,8 @@ export class Results {
         this.enrollError.set(null);
         this.enrollSuccess.set(null);
         this.retryError.set(null);
+        this.isComparing.set(false);
+        this.confirmDismissRest.set(false);
         this.isLoading.set(false);
       },
       error: () => {
