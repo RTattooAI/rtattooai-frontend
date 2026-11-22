@@ -1,12 +1,12 @@
 import { Component, inject, signal } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthApiService } from '../../../core/api';
 import { AuthService } from '../../../core/auth';
 import { Icon, LogoMark } from '../../../shared/ui';
 
 @Component({
   selector: 'app-login',
-  imports: [Icon, LogoMark],
+  imports: [Icon, LogoMark, RouterLink],
   templateUrl: './login.html'
 })
 export class Login {
