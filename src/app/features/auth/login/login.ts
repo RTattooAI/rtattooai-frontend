@@ -1,23 +1,28 @@
 import { Component, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthApiService } from '../../../core/api';
 import { AuthService } from '../../../core/auth';
 import { Icon, LogoMark } from '../../../shared/ui';
 
 @Component({
   selector: 'app-login',
-  imports: [Icon, LogoMark],
+  imports: [Icon, LogoMark, RouterLink],
   templateUrl: './login.html'
 })
 export class Login {
   private readonly authApi = inject(AuthApiService);
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+
+  /** El shell redirige aqui con ?expired=1 cuando el token caduca en pantalla. */
+  readonly sessionExpired = this.route.snapshot.queryParamMap.get('expired') === '1';
 
   readonly email = signal('');
   readonly password = signal('');
   readonly showPassword = signal(false);
-  readonly remember = signal(true);
+  /** Falso guarda la sesion solo en la pestana actual: mejor para un equipo compartido. */
+  readonly remember = signal(false);
   readonly error = signal<string | null>(null);
   readonly isSubmitting = signal(false);
 
@@ -48,7 +53,7 @@ export class Login {
 
     this.authApi.login(this.email(), this.password()).subscribe({
       next: (response) => {
-        this.authService.setSession(response.token, response.user);
+        this.authService.setSession(response.token, response.user, response.expiresAt, this.remember());
         this.router.navigate(['/upload']);
       },
       error: (err) => {

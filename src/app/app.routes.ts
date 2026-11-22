@@ -7,6 +7,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login/login').then((m) => m.Login)
   },
   {
+    path: 'forgot-password',
+    loadComponent: () => import('./features/auth/forgot-password/forgot-password').then((m) => m.ForgotPassword)
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () => import('./features/auth/reset-password/reset-password').then((m) => m.ResetPassword)
+  },
+  {
     path: '',
     canActivate: [authGuard],
     loadComponent: () => import('./shared/layout/shell/shell').then((m) => m.Shell),
@@ -29,9 +37,29 @@ export const routes: Routes = [
         loadComponent: () => import('./features/catalog/enroll/enroll').then((m) => m.Enroll)
       },
       {
+        path: 'catalog/bands',
+        canActivate: [roleGuard(['admin', 'supervisor'])],
+        loadComponent: () => import('./features/catalog/bands/bands').then((m) => m.Bands)
+      },
+      {
+        path: 'reviews',
+        canActivate: [roleGuard(['admin', 'supervisor'])],
+        loadComponent: () => import('./features/reviews/reviews').then((m) => m.Reviews)
+      },
+      {
+        path: 'admin/audit',
+        canActivate: [roleGuard(['admin'])],
+        loadComponent: () => import('./features/admin/audit/audit').then((m) => m.AdminAudit)
+      },
+      {
         path: 'admin/users',
         canActivate: [roleGuard(['admin'])],
         loadComponent: () => import('./features/admin/users/users').then((m) => m.AdminUsers)
+      },
+      {
+        path: 'admin/models',
+        canActivate: [roleGuard(['admin', 'supervisor'])],
+        loadComponent: () => import('./features/admin/models/models').then((m) => m.AdminModels)
       },
       {
         path: 'admin/dashboard',

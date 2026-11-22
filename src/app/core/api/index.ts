@@ -3,3 +3,7 @@ export * from './analysis.service';
 export * from './catalog.service';
 export * from './users.service';
 export * from './dashboard.service';
+export * from './reviews.service';
+export * from './audit.service';
+export * from './bands.service';
+export * from './models.service';

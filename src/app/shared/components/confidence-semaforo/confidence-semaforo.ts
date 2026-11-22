@@ -1,9 +1,11 @@
 import { Component, computed, input } from '@angular/core';
 import { Verdict } from '../../../core/models';
+import { SIMILARITY_STRONG } from '../../ui/confidence';
 
 type SemaforoLevel = 'rojo' | 'amarillo' | 'verde';
 
-const GREEN_THRESHOLD = 0.75;
+/** Mismo corte que la etiqueta "Alta" de cada candidato: una sola escala en pantalla. */
+const GREEN_THRESHOLD = SIMILARITY_STRONG / 100;
 
 interface LevelStyle {
   label: string;
@@ -35,6 +37,12 @@ export class ConfidenceSemaforo {
   readonly level = computed<SemaforoLevel>(() => {
     if (this.verdict() === 'no_match') {
       return 'rojo';
+    }
+    // Un veredicto de revisión nunca es verde, por alta que salga la similitud: el
+    // modelo ya decidió que no llega al umbral firme, y pintarlo en verde diría en
+    // pantalla lo contrario de lo que el sistema concluyó.
+    if (this.verdict() === 'review') {
+      return 'amarillo';
     }
     return (this.similarity() ?? 0) >= GREEN_THRESHOLD ? 'verde' : 'amarillo';
   });

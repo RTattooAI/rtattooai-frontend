@@ -62,6 +62,9 @@
         <div class="text-[13px] font-medium truncate">{{ currentUser()?.name ?? 'Usuario PNP' }}</div>
         <div class="text-[11px] text-navy-300 truncate">{{ currentUser()?.role ?? 'Analista' }}</div>
       </div>
+      <button (click)="openChangePassword()" class="p-1.5 text-navy-300 hover:text-white hover:bg-white/5 rounded transition-colors" title="Cambiar contraseña">
+        <app-icon name="key-round" [size]="16" />
+      </button>
       <button (click)="onLogout()" class="p-1.5 text-navy-300 hover:text-white hover:bg-white/5 rounded transition-colors" title="Cerrar sesión">
         <app-icon name="log-out" [size]="16" />
       </button>
@@ -110,8 +113,23 @@
       </div>
     </header>
 
+    @if (passwordChanged()) {
+      <div class="px-4 sm:px-6 lg:px-8 pt-4">
+        <p class="px-3 py-2.5 rounded-md bg-emerald-50 border border-emerald-200 text-[12.5px] text-emerald-800 flex items-center justify-between gap-3" role="status">
+          Contraseña actualizada. Úsela la próxima vez que inicie sesión.
+          <button (click)="passwordChanged.set(false)" class="p-1 text-emerald-700 hover:bg-emerald-100 rounded" title="Cerrar aviso">
+            <app-icon name="x" [size]="14" />
+          </button>
+        </p>
+      </div>
+    }
+
     <div class="flex-1">
       <router-outlet />
     </div>
   </main>
 </div>
+
+@if (showChangePassword()) {
+  <app-change-password-dialog (closed)="closeChangePassword()" (changed)="onPasswordChanged()" />
+}

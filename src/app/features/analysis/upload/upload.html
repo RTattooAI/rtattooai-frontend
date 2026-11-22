@@ -1,13 +1,85 @@
 <div class="screen-enter p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-3 gap-5">
   <!-- Left — image area -->
   <div class="lg:col-span-2 space-y-4">
-    <app-image-dropzone (fileSelected)="onFileSelected($event)" (removed)="onFileRemoved()" />
+    @if (showCamera()) {
+      <app-camera-capture (captured)="onCameraCaptured($event)" (closed)="toggleCamera()" />
+    } @else if (canAddMore()) {
+      <app-image-dropzone [multiple]="true" (filesSelected)="onFilesSelected($event)" />
+    }
+
+    <div class="flex items-center gap-2 flex-wrap">
+      @if (!showCamera()) {
+        <button
+          type="button"
+          (click)="toggleCamera()"
+          [disabled]="!canAddMore()"
+          class="px-3.5 py-2 text-[13px] font-medium text-slate-700 border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-50 rounded-md flex items-center gap-1.5 shadow-card"
+        >
+          <app-icon name="camera" [size]="15" /> Usar la cámara
+        </button>
+      }
+      @if (imageCount() > 0) {
+        <button
+          type="button"
+          (click)="clearImages()"
+          class="px-3 py-2 text-[12.5px] font-medium text-slate-500 hover:text-rose-600 rounded-md flex items-center gap-1.5"
+        >
+          <app-icon name="trash-2" [size]="14" /> Quitar todas
+        </button>
+      }
+    </div>
+
+    <!-- Fotografías del caso -->
+    @if (imageCount() > 0) {
+      <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4">
+        <div class="flex items-center justify-between gap-3 mb-3">
+          <h3 class="text-[14px] font-semibold text-navy-900">
+            {{ imageCount() }} {{ imageCount() === 1 ? 'fotografía' : 'fotografías' }} en este análisis
+          </h3>
+          <span class="text-[11px] text-slate-500 font-mono">máx. {{ maxImages }}</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          @for (image of images(); track image.previewUrl) {
+            <div class="relative group">
+              <img
+                [src]="image.previewUrl"
+                [alt]="'Fotografía ' + ($index + 1) + ' del análisis'"
+                class="w-full aspect-square object-cover rounded-md ring-1 ring-slate-200 bg-navy-950"
+              />
+              <span class="absolute bottom-1 left-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-navy-950/75 text-white flex items-center gap-1">
+                <app-icon [name]="image.source === 'camara' ? 'camera' : 'image'" [size]="10" />
+                {{ $index + 1 }}
+              </span>
+              <button
+                type="button"
+                (click)="editImage($index)"
+                [title]="'Ajustar la fotografía ' + ($index + 1)"
+                class="absolute bottom-1 right-1 px-1.5 py-1 rounded bg-navy-950/75 text-white hover:bg-navy-900 flex items-center gap-1 text-[10px] font-medium"
+              >
+                <app-icon name="crop" [size]="11" /> Ajustar
+              </button>
+              <button
+                type="button"
+                (click)="removeImage($index)"
+                [title]="'Quitar la fotografía ' + ($index + 1)"
+                class="absolute -top-1.5 -right-1.5 w-6 h-6 grid place-items-center rounded-full bg-white ring-1 ring-slate-200 text-slate-500 hover:text-rose-600 hover:ring-rose-200 shadow-sm"
+              >
+                <app-icon name="x" [size]="12" />
+              </button>
+            </div>
+          }
+        </div>
+      </div>
+    }
 
     <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-start gap-3 text-[12px]">
       <app-icon name="info" [size]="16" class="text-slate-400 mt-0.5 shrink-0" />
       <p class="text-slate-600 leading-relaxed">
-        Suba una fotografía nítida del tatuaje (JPG o PNG, hasta 10&nbsp;MB). El sistema detectará los tatuajes presentes
-        y los comparará contra el catálogo. El recorte y el realce de imagen estarán disponibles en una fase posterior.
+        Puede subir <strong>varias fotografías del mismo caso</strong> (distintas zonas del cuerpo o distintos ángulos
+        del mismo tatuaje) o tomarlas con la cámara del equipo. Cada una se analiza por separado y sus resultados se
+        agrupan en un único expediente. Con <strong>Ajustar</strong> puede girar, recortar y corregir brillo y contraste
+        de cada toma antes de enviarla.
       </p>
     </div>
 
@@ -62,25 +134,40 @@
   <aside class="space-y-4">
     <div class="bg-white rounded-lg border border-slate-200 shadow-card p-5 space-y-3">
       <div class="flex items-center justify-between">
-        <h3 class="text-[14px] font-semibold text-navy-900">Imagen del tatuaje</h3>
+        <h3 class="text-[14px] font-semibold text-navy-900">Fotografías del caso</h3>
         <span class="text-[10px] uppercase tracking-wider text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded ring-1 ring-rose-200">Requerido</span>
       </div>
       <p class="text-[12.5px] text-slate-500 leading-relaxed">
-        Una vez cargada la imagen, ejecute el análisis para detectar tatuajes y obtener las coincidencias del catálogo
-        con su nivel de confianza.
+        Cargue al menos una fotografía y ejecute el análisis para detectar los tatuajes y obtener las coincidencias del
+        catálogo con su nivel de confianza.
       </p>
       <ul class="text-[12px] text-slate-600 space-y-1.5">
         <li class="flex items-center gap-2">
-          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Formatos JPG o PNG
+          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> JPG, PNG o WEBP
         </li>
         <li class="flex items-center gap-2">
-          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Tamaño máximo 10 MB
+          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Hasta {{ maxImages }} fotografías, 10 MB cada una
         </li>
         <li class="flex items-center gap-2">
-          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Vista previa antes de enviar
+          <app-icon name="check-circle-2" [size]="14" class="text-emerald-600 shrink-0" /> Carga desde el equipo o captura con cámara
         </li>
       </ul>
     </div>
+
+    @if (pendingAnalysisId(); as pendingId) {
+      <div class="px-3 py-2.5 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-900 flex items-start gap-2" role="alert">
+        <app-icon name="user-check" [size]="14" class="shrink-0 mt-0.5" />
+        <div class="flex-1">
+          <p>
+            Su consulta anterior tiene detecciones sin validar. Registre su decisión sobre cada una
+            (validar, solicitar revisión o descartar) antes de realizar una nueva consulta.
+          </p>
+          <a [routerLink]="['/results', pendingId]" class="mt-1.5 inline-flex items-center gap-1 font-semibold text-amber-800 hover:underline">
+            Ir a validar la consulta anterior <app-icon name="arrow-right" [size]="12" />
+          </a>
+        </div>
+      </div>
+    }
 
     @if (error()) {
       <p class="px-3 py-2.5 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700 flex items-center gap-2" role="alert">
@@ -92,17 +179,28 @@
     <button
       type="button"
       (click)="onAnalyze()"
-      [disabled]="!selectedFile() || isSubmitting()"
+      [disabled]="imageCount() === 0 || isSubmitting()"
       class="w-full bg-accent hover:bg-accent-600 disabled:bg-slate-300 text-white font-semibold py-3 rounded-md text-[14px] flex items-center justify-center gap-2 transition-colors shadow-card"
     >
       @if (isSubmitting()) {
         <app-icon name="loader" [size]="16" class="spin" />
-        Analizando…
+        Analizando {{ imageCount() }} {{ imageCount() === 1 ? 'imagen' : 'imágenes' }}…
       } @else {
         <app-icon name="scan-search" [size]="16" />
-        Analizar imagen
+        @if (imageCount() > 1) {
+          Analizar {{ imageCount() }} imágenes
+        } @else {
+          Analizar imagen
+        }
       }
     </button>
+
+    @if (hasCameraShots()) {
+      <p class="text-[11.5px] text-slate-500 leading-relaxed flex items-start gap-2 px-1">
+        <app-icon name="camera" [size]="13" class="text-slate-400 mt-0.5 shrink-0" />
+        <span>Las tomas hechas con la cámara quedan registradas como tales en el expediente.</span>
+      </p>
+    }
 
     <div class="text-[11px] text-slate-500 leading-relaxed flex items-start gap-2 px-1">
       <app-icon name="shield-alert" [size]="13" class="text-amber-500 mt-0.5 shrink-0" />
@@ -110,3 +208,7 @@
     </div>
   </aside>
 </div>
+
+@if (editingFile(); as file) {
+  <app-image-editor [file]="file" (applied)="onImageEdited($event)" (cancelled)="closeEditor()" />
+}

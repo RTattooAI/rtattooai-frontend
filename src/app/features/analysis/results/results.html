@@ -23,6 +23,11 @@
             {{ detectionCount() }} {{ detectionCount() === 1 ? 'tatuaje detectado' : 'tatuajes detectados' }} ·
             {{ totalMatches() }} {{ totalMatches() === 1 ? 'coincidencia' : 'coincidencias' }}
           </h2>
+          @if (imageCount() > 1) {
+            <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-slate-100 text-slate-600 ring-slate-200 flex items-center gap-1">
+              <app-icon name="image" [size]="11" /> {{ imageCount() }} fotografías
+            </span>
+          }
         </div>
         <div class="mt-1.5 flex items-center gap-x-4 gap-y-1 flex-wrap text-[12px] text-slate-500">
           @if (item.processingMs != null) {
@@ -32,14 +37,22 @@
             <span class="flex items-center gap-1"><app-icon name="cpu" [size]="11" /> {{ item.modelVersion }}</span>
           }
         </div>
+        @if (item.personName || item.documentId || item.notes) {
+          <div class="mt-2 px-3 py-2 rounded-md bg-slate-50 border border-slate-200 text-[12px] text-slate-700 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <span class="text-[10px] uppercase tracking-wider text-slate-400 font-medium">Caso</span>
+            @if (item.personName) {
+              <span class="flex items-center gap-1"><app-icon name="user" [size]="11" class="text-slate-400" /> {{ item.personName }}</span>
+            }
+            @if (item.documentId) {
+              <span class="font-mono">{{ item.documentId }}</span>
+            }
+            @if (item.notes) {
+              <span class="text-slate-500 italic">{{ item.notes }}</span>
+            }
+          </div>
+        }
       </div>
       <div class="flex items-center gap-2 flex-wrap shrink-0">
-        <button class="flex items-center gap-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-md">
-          <app-icon name="save" [size]="14" /> Guardar borrador
-        </button>
-        <button class="flex items-center gap-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 px-3 py-2 rounded-md">
-          <app-icon name="share-2" [size]="14" /> Compartir
-        </button>
         <button
           type="button"
           (click)="exportPdf()"
@@ -61,6 +74,66 @@
           <app-icon name="triangle-alert" [size]="13" class="shrink-0" />
           {{ pdfExportError() }}
         </p>
+      </div>
+    }
+
+    @if (item.status === 'completed' && detectionCount() > 0) {
+      <div class="px-4 sm:px-8 pb-4">
+        @if (pendingCount() > 0) {
+          <div class="px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 flex flex-col md:flex-row md:items-center gap-3" role="status">
+            <div class="flex items-start gap-2 flex-1 text-[12.5px] text-amber-900">
+              <app-icon name="user-check" [size]="16" class="shrink-0 mt-0.5" />
+              <p>
+                <strong>{{ pendingCount() }} {{ pendingCount() === 1 ? 'detección pendiente' : 'detecciones pendientes' }} de validación.</strong>
+                Registre su decisión sobre cada una (validar, solicitar revisión o descartar); hasta entonces no podrá
+                realizar una nueva consulta.
+              </p>
+            </div>
+            <div class="flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                type="button"
+                (click)="goToNextPending()"
+                class="text-[12px] font-semibold text-amber-900 bg-white ring-1 ring-amber-300 hover:bg-amber-100 px-3 py-1.5 rounded-md flex items-center gap-1"
+              >
+                Ir a la siguiente pendiente <app-icon name="arrow-right" [size]="12" />
+              </button>
+              @if (confirmDismissRest()) {
+                <button
+                  type="button"
+                  (click)="dismissRemaining()"
+                  [disabled]="isDismissingRest()"
+                  class="text-[12px] font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-60 px-3 py-1.5 rounded-md flex items-center gap-1"
+                >
+                  @if (isDismissingRest()) {
+                    <app-icon name="loader" [size]="12" class="spin" /> Descartando…
+                  } @else {
+                    Confirmar: descartar {{ pendingCount() }}
+                  }
+                </button>
+                <button type="button" (click)="cancelDismissRest()" class="text-[12px] text-slate-600 hover:text-slate-900 px-2 py-1.5">Cancelar</button>
+              } @else {
+                <button
+                  type="button"
+                  (click)="dismissRemaining()"
+                  class="text-[12px] font-medium text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-md flex items-center gap-1"
+                  title="Para detecciones que no son tatuajes o no aportan al caso"
+                >
+                  <app-icon name="thumbs-down" [size]="12" /> Descartar las pendientes
+                </button>
+              }
+            </div>
+          </div>
+        } @else {
+          <div class="px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center gap-3">
+            <p class="flex items-center gap-2 flex-1 text-[12.5px] text-emerald-800">
+              <app-icon name="check-circle-2" [size]="16" class="shrink-0" />
+              Todas las detecciones de esta consulta tienen una decisión registrada.
+            </p>
+            <a routerLink="/upload" class="text-[12px] font-semibold text-white bg-navy-800 hover:bg-navy-900 px-3 py-1.5 rounded-md flex items-center gap-1 shrink-0">
+              <app-icon name="scan-search" [size]="12" /> Nueva consulta
+            </a>
+          </div>
+        }
       </div>
     }
 
@@ -87,9 +160,30 @@
       }
       @case ('failed') {
         <div class="px-4 sm:px-8 pb-8">
-          <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">
-            El análisis falló. Intente subir la imagen nuevamente.
-          </p>
+          <div class="bg-white rounded-lg border border-rose-200 shadow-card p-8 flex flex-col items-center text-center gap-3">
+            <div class="w-14 h-14 rounded-full bg-rose-50 text-rose-500 grid place-items-center">
+              <app-icon name="triangle-alert" [size]="26" />
+            </div>
+            <p class="text-[15px] text-navy-900 font-medium">El análisis no pudo completarse.</p>
+            <p class="text-[13px] text-slate-500 max-w-md">
+              La imagen quedó guardada. Puede reintentar el procesamiento sin volver a cargarla.
+            </p>
+            @if (retryError()) {
+              <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ retryError() }}</p>
+            }
+            <button
+              type="button"
+              (click)="retry()"
+              [disabled]="isRetrying()"
+              class="mt-1 flex items-center gap-1.5 text-[13px] font-semibold text-white bg-navy-800 hover:bg-navy-900 disabled:opacity-60 px-4 py-2 rounded-md shadow-card"
+            >
+              @if (isRetrying()) {
+                <app-icon name="loader" [size]="14" class="spin" /> Reintentando…
+              } @else {
+                <app-icon name="refresh-cw" [size]="14" /> Reintentar análisis
+              }
+            </button>
+          </div>
         </div>
       }
       @case ('completed') {
@@ -99,27 +193,41 @@
             <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
               <div class="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
                 <h3 class="text-[13px] font-semibold text-navy-900 flex items-center gap-1.5">
-                  <app-icon name="image" [size]="14" class="text-slate-400" /> Imagen original con detecciones
+                  <app-icon name="image" [size]="14" class="text-slate-400" />
+                  @if (imageCount() > 1) {
+                    Fotografía {{ activeImageIndex() + 1 }} de {{ imageCount() }}
+                  } @else {
+                    Imagen original con detecciones
+                  }
                 </h3>
-                <div class="flex items-center gap-1 text-[11px]">
-                  <a [href]="item.imageUrl" target="_blank" rel="noopener" class="px-2 py-1 rounded text-slate-500 hover:bg-slate-100" title="Abrir imagen">
-                    <app-icon name="maximize-2" [size]="12" />
-                  </a>
-                  <a [href]="item.imageUrl" download class="px-2 py-1 rounded text-slate-500 hover:bg-slate-100" title="Descargar">
-                    <app-icon name="download" [size]="12" />
-                  </a>
-                </div>
+                @if (activeImage(); as current) {
+                  <div class="flex items-center gap-1 text-[11px]">
+                    @if (current.source === 'camara') {
+                      <span class="px-2 py-0.5 rounded-full ring-1 bg-slate-100 text-slate-600 ring-slate-200 flex items-center gap-1 mr-1">
+                        <app-icon name="camera" [size]="10" /> Cámara
+                      </span>
+                    }
+                    <a [href]="current.imageUrl" target="_blank" rel="noopener" class="px-2 py-1 rounded text-slate-500 hover:bg-slate-100" title="Abrir imagen">
+                      <app-icon name="maximize-2" [size]="12" />
+                    </a>
+                    <a [href]="current.imageUrl" download class="px-2 py-1 rounded text-slate-500 hover:bg-slate-100" title="Descargar">
+                      <app-icon name="download" [size]="12" />
+                    </a>
+                  </div>
+                }
               </div>
 
               <div class="relative bg-navy-950">
-                <app-bbox-overlay
-                  [imageUrl]="item.imageUrl"
-                  [imageWidth]="item.imageWidth ?? 1"
-                  [imageHeight]="item.imageHeight ?? 1"
-                  [detections]="item.detections"
-                  [activeIndex]="activeDetection()"
-                  (detectionSelected)="selectDetection($event)"
-                />
+                @if (activeImage(); as current) {
+                  <app-bbox-overlay
+                    [imageUrl]="current.imageUrl"
+                    [imageWidth]="current.width ?? 1"
+                    [imageHeight]="current.height ?? 1"
+                    [detections]="imageDetections()"
+                    [activeIndex]="activeDetection()"
+                    (detectionSelected)="selectDetection($event)"
+                  />
+                }
                 <div class="absolute bottom-3 left-3 bg-navy-950/80 backdrop-blur rounded ring-1 ring-white/10 px-2.5 py-1.5 text-[10px] text-white space-y-0.5 pointer-events-none">
                   <div class="text-white/60 uppercase tracking-wider font-medium mb-1">Confianza de detección</div>
                   <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-emerald-500 rounded-sm"></span>Alta &gt; 80%</div>
@@ -127,6 +235,30 @@
                   <div class="flex items-center gap-1.5"><span class="w-2 h-2 bg-rose-500 rounded-sm"></span>Baja &lt; 60%</div>
                 </div>
               </div>
+
+              @if (imageCount() > 1) {
+                <div class="px-4 py-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
+                  <span class="text-[11px] text-slate-500 uppercase tracking-wider font-medium mr-2 shrink-0">Fotografías</span>
+                  @for (tab of imageTabs(); track tab.image.id) {
+                    <button
+                      type="button"
+                      (click)="selectImage(tab.index)"
+                      [title]="'Ver la fotografía ' + (tab.index + 1)"
+                      class="relative shrink-0 rounded-md overflow-hidden ring-2 transition-colors"
+                      [class]="tab.index === activeImageIndex() ? 'ring-navy-800' : 'ring-slate-200 hover:ring-slate-300'"
+                    >
+                      <app-tattoo-thumb [id]="tab.image.id" [imageUrl]="tab.image.thumbnailUrl ?? tab.image.imageUrl" [size]="56" />
+                      <span class="absolute bottom-0 inset-x-0 bg-navy-950/75 text-white text-[10px] py-0.5 text-center">
+                        @if (tab.image.status === 'failed') {
+                          Falló
+                        } @else {
+                          {{ tab.detectionCount }} det.
+                        }
+                      </span>
+                    </button>
+                  }
+                </div>
+              }
 
               @if (detectionChips().length) {
                 <div class="px-4 py-3 border-t border-slate-100 flex items-center gap-2 overflow-x-auto">
@@ -154,8 +286,9 @@
 
                 <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-3 flex-wrap">
                   <p class="text-[11.5px] text-slate-500 leading-relaxed max-w-md">
-                    Las detecciones de confianza alta se preseleccionan. Marque o desmarque las que desee agregar al
-                    catálogo; quedarán sin banda asignada hasta que un analista la confirme.
+                    Se preseleccionan las detecciones cuya <strong>calidad de detección</strong> es alta (no su parecido
+                    con el catálogo). Marque o desmarque las que desee agregar; quedarán sin banda asignada hasta que
+                    un supervisor la confirme.
                   </p>
                   <button
                     type="button"
@@ -198,12 +331,33 @@
                   <h3 class="text-[13px] font-semibold text-navy-900">Detección {{ activeDetection() + 1 }}</h3>
                   <span
                     class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1"
-                    [class]="det.verdict === 'match' ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-slate-100 text-slate-600 ring-slate-200'"
+                    [class]="matchTypeMeta[det.matchType]?.badge"
                   >
-                    {{ det.verdict === 'match' ? 'Coincidencia' : 'Sin coincidencia concluyente' }}
+                    {{ matchTypeMeta[det.matchType]?.label }}
                   </span>
                 </div>
                 <app-confidence-semaforo [verdict]="det.verdict" [similarity]="bestSimilarity()" />
+
+                @if (det.matchType === 'unclassified') {
+                  <p class="px-3 py-2 rounded-md bg-sky-50 border border-sky-200 text-[12px] text-sky-900 flex items-start gap-1.5">
+                    <app-icon name="info" [size]="13" class="mt-0.5 shrink-0" />
+                    <span>
+                      Este tatuaje <strong>ya se registró en otro caso</strong> pero todavía no tiene banda asignada.
+                      No es una atribución de pertenencia: es un reencuentro. Supervisión puede clasificarlo desde el
+                      catálogo para que a partir de entonces el sistema lo asocie a una banda.
+                    </span>
+                  </p>
+                }
+
+                @if (det.matchType === 'review') {
+                  <p class="px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-[12px] text-amber-900 flex items-start gap-1.5">
+                    <app-icon name="triangle-alert" [size]="13" class="mt-0.5 shrink-0" />
+                    <span>
+                      Hay un candidato parecido, pero por debajo del umbral con el que el sistema sostiene una
+                      coincidencia. Se muestra para que lo revise una persona, no como resultado.
+                    </span>
+                  </p>
+                }
               </div>
             }
 
@@ -332,8 +486,12 @@
                         <button class="text-[11px] font-medium text-accent hover:bg-accent/10 px-2 py-1 rounded flex items-center gap-1">
                           <app-icon name="eye" [size]="12" /> Ver ficha
                         </button>
-                        <button class="text-[11px] font-medium text-slate-600 hover:bg-slate-100 px-2 py-1 rounded flex items-center gap-1">
-                          <app-icon name="git-compare" [size]="12" /> Comparar
+                        <button
+                          type="button"
+                          (click)="$event.stopPropagation(); openCompare(vm.rank - 1)"
+                          class="text-[11px] font-semibold text-accent hover:bg-accent/10 px-2 py-1 rounded flex items-center gap-1"
+                        >
+                          <app-icon name="git-compare" [size]="12" /> Comparar lado a lado
                         </button>
                         <button class="text-[11px] font-medium text-slate-600 hover:bg-slate-100 px-2 py-1 rounded flex items-center gap-1 ml-auto">
                           <app-icon name="flag" [size]="12" /> Marcar
@@ -377,4 +535,16 @@
       }
     }
   </div>
+
+  @if (isComparing() && activeDet() && activeImage() && activeMatchItem()) {
+    <app-tattoo-compare
+      [imageUrl]="activeImage()!.imageUrl"
+      [imageWidth]="activeImage()!.width ?? 1"
+      [imageHeight]="activeImage()!.height ?? 1"
+      [bbox]="activeDet()!.bbox"
+      [match]="activeMatchItem()!"
+      [detectionLabel]="'Detección ' + (activeDetection() + 1)"
+      (closed)="closeCompare()"
+    />
+  }
 }

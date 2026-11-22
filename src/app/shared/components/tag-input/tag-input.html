@@ -1,0 +1,57 @@
+<div>
+  <div
+    class="w-full min-h-[38px] px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-md flex flex-wrap items-center gap-1.5 focus-within:ring-2 focus-within:ring-accent/30"
+  >
+    @for (tag of tags(); track tag) {
+      <span class="inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded bg-white ring-1 ring-slate-200 text-[12px] text-slate-700">
+        {{ tag }}
+        <button
+          type="button"
+          (click)="remove(tag)"
+          [title]="'Quitar ' + tag"
+          class="p-0.5 text-slate-400 hover:text-rose-600 rounded"
+        >
+          <app-icon name="x" [size]="11" />
+        </button>
+      </span>
+    }
+
+    <input
+      [value]="draft()"
+      [placeholder]="tags().length ? '' : placeholder()"
+      [disabled]="isFull()"
+      (input)="onDraftInput($event)"
+      (keydown)="onKeyDown($event)"
+      (focus)="isFocused.set(true)"
+      (blur)="onBlur()"
+      autocomplete="off"
+      class="flex-1 min-w-[110px] bg-transparent text-[13px] px-1 py-0.5 focus:outline-none disabled:opacity-50"
+    />
+  </div>
+
+  <div class="mt-1 flex items-start justify-between gap-3">
+    <div class="flex-1">
+      @if (isFocused() && available().length) {
+        <div class="flex flex-wrap gap-1">
+          @for (suggestion of available(); track suggestion) {
+            <button
+              type="button"
+              (mousedown)="$event.preventDefault(); add(suggestion)"
+              class="px-2 py-0.5 rounded text-[11.5px] bg-slate-100 text-slate-600 hover:bg-accent/10 hover:text-navy-900"
+            >
+              + {{ suggestion }}
+            </button>
+          }
+        </div>
+      } @else {
+        <span class="text-[11px] text-slate-500">
+          Intro o coma para añadir. Se guardan en minúsculas y sin repetidos.
+        </span>
+      }
+    </div>
+
+    <span class="text-[11px] tabular shrink-0" [class]="isFull() ? 'text-amber-700' : 'text-slate-400'">
+      {{ tags().length }}/{{ maxTags }}
+    </span>
+  </div>
+</div>

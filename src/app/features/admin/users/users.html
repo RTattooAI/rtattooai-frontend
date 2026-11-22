@@ -30,6 +30,7 @@
               <th class="px-4 py-2.5 font-medium">Nombre</th>
               <th class="px-4 py-2.5 font-medium">Correo</th>
               <th class="px-4 py-2.5 font-medium">Rol</th>
+              <th class="px-4 py-2.5 font-medium">Dependencia</th>
               <th class="px-4 py-2.5 font-medium">Estado</th>
               <th class="px-4 py-2.5 font-medium">Creado</th>
               <th class="px-4 py-2.5 font-medium text-right">Acciones</th>
@@ -45,6 +46,7 @@
                     {{ roleLabels[row.item.role] }}
                   </span>
                 </td>
+                <td class="px-4 py-3 text-slate-600">{{ row.item.dependency ?? '—' }}</td>
                 <td class="px-4 py-3">
                   @if (row.item.active) {
                     <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">Activo</span>
@@ -54,24 +56,38 @@
                 </td>
                 <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy' }}</td>
                 <td class="px-4 py-3 text-right">
-                  <button
-                    (click)="toggleActive(row.item)"
-                    [disabled]="isToggling(row.item.id)"
-                    class="text-[12px] font-medium flex items-center gap-1 ml-auto disabled:opacity-50"
-                    [class]="row.item.active ? 'text-rose-600 hover:underline' : 'text-emerald-700 hover:underline'"
-                  >
-                    @if (isToggling(row.item.id)) {
-                      <app-icon name="loader" [size]="12" class="spin" />
-                    } @else {
-                      <app-icon name="power" [size]="12" />
-                    }
-                    {{ row.item.active ? 'Desactivar' : 'Activar' }}
-                  </button>
+                  <div class="flex items-center justify-end gap-3">
+                    <button
+                      (click)="openEdit(row.item)"
+                      class="text-[12px] font-medium text-slate-600 hover:underline flex items-center gap-1"
+                    >
+                      <app-icon name="pencil" [size]="12" /> Editar
+                    </button>
+                    <button
+                      (click)="openReset(row.item)"
+                      class="text-[12px] font-medium text-slate-600 hover:underline flex items-center gap-1"
+                    >
+                      <app-icon name="key-round" [size]="12" /> Contraseña
+                    </button>
+                    <button
+                      (click)="toggleActive(row.item)"
+                      [disabled]="isToggling(row.item.id)"
+                      class="text-[12px] font-medium flex items-center gap-1 disabled:opacity-50"
+                      [class]="row.item.active ? 'text-rose-600 hover:underline' : 'text-emerald-700 hover:underline'"
+                    >
+                      @if (isToggling(row.item.id)) {
+                        <app-icon name="loader" [size]="12" class="spin" />
+                      } @else {
+                        <app-icon name="power" [size]="12" />
+                      }
+                      {{ row.item.active ? 'Desactivar' : 'Activar' }}
+                    </button>
+                  </div>
                 </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="px-4 py-12 text-center text-[13px] text-slate-500">No hay usuarios registrados.</td>
+                <td colspan="7" class="px-4 py-12 text-center text-[13px] text-slate-500">No hay usuarios registrados.</td>
               </tr>
             }
           </tbody>
@@ -87,8 +103,10 @@
     <div class="bg-white rounded-xl shadow-pop w-full max-w-[480px] max-h-[90vh] overflow-auto">
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
         <div>
-          <h3 class="text-[16px] font-semibold text-navy-900">Nuevo usuario</h3>
-          <p class="text-[12px] text-slate-500 mt-0.5">Crea una cuenta para personal autorizado.</p>
+          <h3 class="text-[16px] font-semibold text-navy-900">{{ editingId() ? 'Editar usuario' : 'Nuevo usuario' }}</h3>
+          <p class="text-[12px] text-slate-500 mt-0.5">
+            {{ editingId() ? 'El correo y la contraseña se gestionan aparte.' : 'Crea una cuenta para personal autorizado.' }}
+          </p>
         </div>
         <button (click)="closeForm()" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded"><app-icon name="x" [size]="16" /></button>
       </div>
@@ -104,26 +122,46 @@
           />
         </label>
 
-        <label class="block">
-          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Correo institucional</span>
-          <input
-            type="email"
-            [value]="email()"
-            (input)="onEmailInput($event)"
-            placeholder="usuario@pnp.gob.pe"
-            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-          />
-        </label>
+        @if (editingId()) {
+          <div>
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Correo institucional</span>
+            <p class="mt-1.5 px-3 py-2 text-[13px] bg-slate-100 border border-slate-200 rounded-md text-slate-600 font-mono">
+              {{ email() }}
+            </p>
+          </div>
+        } @else {
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Correo institucional</span>
+            <input
+              type="email"
+              [value]="email()"
+              (input)="onEmailInput($event)"
+              placeholder="usuario@pnp.gob.pe"
+              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Contraseña inicial</span>
+            <input
+              type="password"
+              [value]="password()"
+              (input)="onPasswordInput($event)"
+              placeholder="Mínimo 8 caracteres"
+              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </label>
+        }
 
         <label class="block">
-          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Contraseña inicial</span>
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Dependencia policial</span>
           <input
-            type="password"
-            [value]="password()"
-            (input)="onPasswordInput($event)"
-            placeholder="Mínimo 8 caracteres"
+            [value]="dependency()"
+            (input)="onDependencyInput($event)"
+            placeholder="Ej. DIRINCRI Lima"
             class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
           />
+          <span class="mt-1 block text-[11px] text-slate-500">Unidad a la que se atribuyen sus consultas en la auditoría.</span>
         </label>
 
         <label class="block">
@@ -148,13 +186,71 @@
         <button (click)="closeForm()" class="px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-200 rounded-md font-medium">Cancelar</button>
         <button
           (click)="onSubmit()"
-          [disabled]="!fullName().trim() || !email().trim() || password().length < 8 || isSubmitting()"
+          [disabled]="!canSubmit()"
           class="px-4 py-2 text-[13px] text-white bg-accent hover:bg-accent-600 disabled:bg-slate-300 rounded-md font-semibold shadow-card flex items-center gap-2"
         >
           @if (isSubmitting()) {
-            <app-icon name="loader" [size]="14" class="spin" /> Creando…
+            <app-icon name="loader" [size]="14" class="spin" /> Guardando…
           } @else {
-            Crear usuario
+            {{ editingId() ? 'Guardar cambios' : 'Crear usuario' }}
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (resetSuccess()) {
+  <div class="px-4 sm:px-8 pb-4">
+    <p class="px-3 py-2.5 rounded-md bg-emerald-50 border border-emerald-200 text-[12.5px] text-emerald-800" role="status">
+      {{ resetSuccess() }}
+    </p>
+  </div>
+}
+
+@if (resetTargetId()) {
+  <div class="fixed inset-0 z-50 grid place-items-center bg-navy-950/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-5">
+      <div class="flex items-start justify-between gap-4 mb-3">
+        <div>
+          <h3 class="text-[15px] font-semibold text-navy-900">Restablecer contraseña</h3>
+          <p class="text-[12px] text-slate-500 mt-0.5">
+            Al menos 8 caracteres, combinando letras y números. Comuníquela al usuario por un canal seguro.
+          </p>
+        </div>
+        <button (click)="closeReset()" class="p-1 text-slate-400 hover:text-slate-700 rounded">
+          <app-icon name="x" [size]="16" />
+        </button>
+      </div>
+
+      <input
+        type="text"
+        autocomplete="off"
+        [value]="resetPassword()"
+        (input)="onResetPasswordInput($event)"
+        placeholder="Nueva contraseña"
+        class="w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 font-mono"
+      />
+
+      @if (resetError()) {
+        <p class="mt-2 px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">
+          {{ resetError() }}
+        </p>
+      }
+
+      <div class="mt-4 flex items-center justify-end gap-2">
+        <button (click)="closeReset()" class="px-3 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-100 rounded-md">
+          Cancelar
+        </button>
+        <button
+          (click)="submitReset()"
+          [disabled]="resetPassword().length < 8 || isResetting()"
+          class="px-3.5 py-2 text-[13px] font-semibold text-white bg-navy-800 hover:bg-navy-900 disabled:bg-slate-300 rounded-md flex items-center gap-1.5"
+        >
+          @if (isResetting()) {
+            <app-icon name="loader" [size]="14" class="spin" /> Guardando…
+          } @else {
+            Restablecer
           }
         </button>
       </div>

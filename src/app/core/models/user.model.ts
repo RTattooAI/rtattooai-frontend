@@ -19,4 +19,7 @@ export interface UserListItem {
   role: UserRole;
   active: boolean;
   createdAt: string;
+  /** Dependencia policial a la que está adscrito (RF-12). */
+  dependency: string | null;
+  lastAccessAt: string | null;
 }

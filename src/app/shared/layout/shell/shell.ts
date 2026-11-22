@@ -1,8 +1,9 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { filter, map, startWith } from 'rxjs';
 import { AuthService } from '../../../core/auth';
+import { ChangePasswordDialog } from '../../components/change-password-dialog/change-password-dialog';
 import { Icon, LogoMark } from '../../ui';
 
 interface NavLink {
@@ -24,14 +25,18 @@ const INACTIVE_NAV = 'text-navy-200 hover:bg-white/5 hover:text-white';
 
 @Component({
   selector: 'app-shell',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, LogoMark],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, Icon, LogoMark, ChangePasswordDialog],
   templateUrl: './shell.html'
 })
 export class Shell {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly currentUser = this.authService.currentUser;
+
+  readonly showChangePassword = signal(false);
+  readonly passwordChanged = signal(false);
 
   readonly operacionNav: NavLink[] = [
     { link: '/upload', icon: 'scan-search', label: 'Nuevo análisis' },
@@ -40,8 +45,12 @@ export class Shell {
   ];
 
   private readonly allGestionNav: NavLink[] = [
+    { link: '/catalog/bands', icon: 'tags', label: 'Bandas criminales', roles: ['admin', 'supervisor'] },
+    { link: '/reviews', icon: 'clipboard-check', label: 'Bandeja de revisión', roles: ['admin', 'supervisor'] },
+    { link: '/admin/dashboard', icon: 'layout-grid', label: 'Panel de control', roles: ['admin', 'supervisor'] },
+    { link: '/admin/models', icon: 'cpu', label: 'Modelos', roles: ['admin', 'supervisor'] },
     { link: '/admin/users', icon: 'users', label: 'Usuarios', roles: ['admin'] },
-    { link: '/admin/dashboard', icon: 'layout-grid', label: 'Panel de control', roles: ['admin', 'supervisor'] }
+    { link: '/admin/audit', icon: 'shield-check', label: 'Auditoría', roles: ['admin'] }
   ];
 
   readonly gestionNav = computed<NavLink[]>(() => {
@@ -82,6 +91,28 @@ export class Shell {
 
   readonly meta = computed<ScreenMeta>(() => metaForUrl(this.currentUrl()));
 
+  constructor() {
+    this.scheduleSessionExpiry();
+  }
+
+  /**
+   * Cierra la sesion cuando caduca el token, sin esperar a que una peticion falle:
+   * en un equipo compartido la pantalla no debe seguir aparentando sesion activa.
+   */
+  private scheduleSessionExpiry(): void {
+    const remaining = this.authService.millisecondsUntilExpiry();
+    if (remaining <= 0) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      this.authService.logout();
+      this.router.navigate(['/login'], { queryParams: { expired: 1 } });
+    }, remaining);
+
+    this.destroyRef.onDestroy(() => clearTimeout(timer));
+  }
+
   navClass(active: boolean): string {
     return `${BASE_NAV} ${active ? ACTIVE_NAV : INACTIVE_NAV}`;
   }
@@ -92,6 +123,21 @@ export class Shell {
 
   closeNav(): void {
     this.navOpen.set(false);
+  }
+
+  openChangePassword(): void {
+    this.passwordChanged.set(false);
+    this.showChangePassword.set(true);
+    this.closeNav();
+  }
+
+  closeChangePassword(): void {
+    this.showChangePassword.set(false);
+  }
+
+  onPasswordChanged(): void {
+    this.showChangePassword.set(false);
+    this.passwordChanged.set(true);
   }
 
   onLogout(): void {
@@ -107,6 +153,10 @@ function metaForUrl(url: string): ScreenMeta {
   if (url.startsWith('/history')) {
     return { title: 'Historial de consultas', breadcrumb: ['Inicio', 'Historial'] };
   }
+  // Antes que /catalog, que tambien casaria con esta ruta.
+  if (url.startsWith('/catalog/bands')) {
+    return { title: 'Bandas criminales', breadcrumb: ['Inicio', 'Gestión', 'Bandas'] };
+  }
   if (url.startsWith('/catalog')) {
     return { title: 'Catálogo de tatuajes', breadcrumb: ['Inicio', 'Gestión', 'Catálogo'] };
   }
@@ -115,6 +165,15 @@ function metaForUrl(url: string): ScreenMeta {
   }
   if (url.startsWith('/admin/dashboard')) {
     return { title: 'Panel de control', breadcrumb: ['Inicio', 'Gestión', 'Panel'] };
+  }
+  if (url.startsWith('/admin/audit')) {
+    return { title: 'Registro de auditoría', breadcrumb: ['Inicio', 'Gestión', 'Auditoría'] };
+  }
+  if (url.startsWith('/admin/models')) {
+    return { title: 'Modelos de identificación', breadcrumb: ['Inicio', 'Gestión', 'Modelos'] };
+  }
+  if (url.startsWith('/reviews')) {
+    return { title: 'Bandeja de revisión', breadcrumb: ['Inicio', 'Gestión', 'Revisión'] };
   }
   return { title: 'Nuevo análisis', breadcrumb: ['Inicio', 'Análisis', 'Nuevo'] };
 }

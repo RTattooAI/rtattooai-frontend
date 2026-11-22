@@ -1,0 +1,257 @@
+<div class="screen-enter p-4 sm:p-6 lg:p-8 space-y-5">
+  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-3 flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h3 class="text-[14px] font-semibold text-navy-900">Bandas criminales</h3>
+      <p class="text-[11.5px] text-slate-500 mt-0.5">
+        {{ items().length }} registradas · {{ activeCount() }} activas. Es la unidad con la que el sistema expresa una coincidencia.
+      </p>
+    </div>
+    <button
+      (click)="openCreate()"
+      class="px-3.5 py-2 text-[13px] font-medium text-white bg-accent hover:bg-accent-600 rounded-md flex items-center gap-1.5 shadow-card"
+    >
+      <app-icon name="plus" [size]="14" [strokeWidth]="2.5" /> Nueva banda
+    </button>
+  </div>
+
+  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4">
+    <div class="relative">
+      <app-icon name="search" [size]="15" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+      <input
+        [value]="search()"
+        (input)="onSearchInput($event)"
+        placeholder="Filtrar por nombre, alias o región…"
+        class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+      />
+    </div>
+  </div>
+
+  @if (actionError()) {
+    <p class="px-4 py-3 rounded-md bg-amber-50 border border-amber-200 text-[13px] text-amber-800" role="alert">
+      {{ actionError() }}
+    </p>
+  }
+
+  @if (isLoading()) {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-8 flex items-center gap-3 text-slate-500">
+      <app-icon name="loader" [size]="18" class="spin" />
+      <span class="text-[14px]">Cargando bandas…</span>
+    </div>
+  } @else if (loadError()) {
+    <p class="px-4 py-3 rounded-md bg-rose-50 border border-rose-200 text-[13px] text-rose-700" role="alert">{{ loadError() }}</p>
+  } @else {
+    <div class="bg-white rounded-lg border border-slate-200 shadow-card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-[13px] min-w-[820px]">
+          <thead>
+            <tr class="text-left text-[11px] text-slate-500 uppercase tracking-wider border-b border-slate-200 bg-slate-50/50">
+              <th class="px-4 py-2.5 font-medium">Banda</th>
+              <th class="px-4 py-2.5 font-medium">Región</th>
+              <th class="px-4 py-2.5 font-medium">Peligro</th>
+              <th class="px-4 py-2.5 font-medium text-right">Tatuajes</th>
+              <th class="px-4 py-2.5 font-medium">Estado</th>
+              <th class="px-4 py-2.5 font-medium">Registrada</th>
+              <th class="px-4 py-2.5 font-medium text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            @for (row of rows(); track row.item.id) {
+              <tr class="hover:bg-slate-50/70">
+                <td class="px-4 py-3">
+                  <div class="font-medium text-navy-900">{{ row.item.name }}</div>
+                  @if (row.item.alias) {
+                    <div class="text-[11.5px] text-slate-500">alias «{{ row.item.alias }}»</div>
+                  }
+                </td>
+                <td class="px-4 py-3 text-slate-600">{{ row.item.region ?? '—' }}</td>
+                <td class="px-4 py-3">
+                  @if (row.dangerLabel && row.dangerBadge) {
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1" [class]="row.dangerBadge">
+                      {{ row.dangerLabel }}
+                    </span>
+                  } @else {
+                    <span class="text-slate-400">—</span>
+                  }
+                </td>
+                <td class="px-4 py-3 text-right font-mono text-[12px] text-slate-700 tabular">{{ row.item.tattooCount }}</td>
+                <td class="px-4 py-3">
+                  @if (row.item.active) {
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">Activa</span>
+                  } @else {
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-slate-100 text-slate-600 ring-slate-200">Inactiva</span>
+                  }
+                </td>
+                <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy' }}</td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex items-center justify-end gap-3">
+                    <button (click)="openEdit(row.item)" class="text-[12px] font-medium text-slate-600 hover:underline flex items-center gap-1">
+                      <app-icon name="pencil" [size]="12" /> Editar
+                    </button>
+                    <button
+                      (click)="toggleActive(row.item)"
+                      [disabled]="isBusy(row.item.id)"
+                      class="text-[12px] font-medium flex items-center gap-1 disabled:opacity-50"
+                      [class]="row.item.active ? 'text-amber-700 hover:underline' : 'text-emerald-700 hover:underline'"
+                    >
+                      @if (isBusy(row.item.id)) {
+                        <app-icon name="loader" [size]="12" class="spin" />
+                      } @else {
+                        <app-icon name="power" [size]="12" />
+                      }
+                      {{ row.item.active ? 'Desactivar' : 'Activar' }}
+                    </button>
+                    <button
+                      (click)="askDelete(row.item)"
+                      [disabled]="isBusy(row.item.id)"
+                      [title]="row.item.tattooCount > 0 ? 'Tiene tatuajes asociados: solo se puede desactivar' : 'Borrar la banda'"
+                      class="text-[12px] font-medium text-rose-600 hover:underline flex items-center gap-1 disabled:opacity-50"
+                    >
+                      <app-icon name="trash-2" [size]="12" /> Borrar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="px-4 py-12 text-center text-[13px] text-slate-500">
+                  @if (items().length === 0) {
+                    Todavía no hay bandas registradas. Se crean también al enrolar un tatuaje con una banda nueva.
+                  } @else {
+                    Ninguna banda coincide con el filtro.
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
+
+@if (showForm()) {
+  <div class="fixed inset-0 z-40 bg-navy-950/60 backdrop-blur-sm grid place-items-center p-6">
+    <div class="bg-white rounded-xl shadow-pop w-full max-w-[520px] max-h-[90vh] overflow-auto">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+        <div>
+          <h3 class="text-[16px] font-semibold text-navy-900">
+            {{ editingId() ? 'Editar banda' : 'Nueva banda' }}
+          </h3>
+          <p class="text-[12px] text-slate-500 mt-0.5">El nombre es el que aparece en los resultados del análisis.</p>
+        </div>
+        <button (click)="closeForm()" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded"><app-icon name="x" [size]="16" /></button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Nombre</span>
+          <input
+            [value]="name()"
+            (input)="onNameInput($event)"
+            placeholder="Ej. Los Pulpos"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          />
+        </label>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Alias</span>
+            <input
+              [value]="alias()"
+              (input)="onAliasInput($event)"
+              placeholder="Opcional"
+              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </label>
+
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Región</span>
+            <input
+              [value]="region()"
+              (input)="onRegionInput($event)"
+              placeholder="Ej. La Libertad"
+              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </label>
+        </div>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Nivel de peligro</span>
+          <select
+            [value]="dangerLevel()"
+            (change)="onDangerChange($event)"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+          >
+            <option value="">Sin clasificar</option>
+            @for (level of dangerLevels; track level) {
+              <option [value]="level">{{ dangerLabels[level] }}</option>
+            }
+          </select>
+        </label>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Descripción</span>
+          <textarea
+            [value]="description()"
+            (input)="onDescriptionInput($event)"
+            rows="3"
+            placeholder="Modo de operación, zona de influencia, referencia del expediente…"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+          ></textarea>
+        </label>
+
+        @if (formError()) {
+          <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ formError() }}</p>
+        }
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2 bg-slate-50">
+        <button (click)="closeForm()" class="px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-200 rounded-md font-medium">Cancelar</button>
+        <button
+          (click)="submit()"
+          [disabled]="!name().trim() || isSubmitting()"
+          class="px-4 py-2 text-[13px] text-white bg-accent hover:bg-accent-600 disabled:bg-slate-300 rounded-md font-semibold shadow-card flex items-center gap-2"
+        >
+          @if (isSubmitting()) {
+            <app-icon name="loader" [size]="14" class="spin" /> Guardando…
+          } @else {
+            {{ editingId() ? 'Guardar cambios' : 'Crear banda' }}
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (deleteTarget(); as band) {
+  <div class="fixed inset-0 z-50 grid place-items-center bg-navy-950/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-lg shadow-lg w-full max-w-md p-5">
+      <h3 class="text-[15px] font-semibold text-navy-900">Borrar «{{ band.name }}»</h3>
+      <p class="mt-1.5 text-[12.5px] text-slate-600">
+        @if (band.tattooCount > 0) {
+          Esta banda tiene {{ band.tattooCount }} tatuaje(s) en el catálogo. El sistema no permitirá borrarla, porque
+          esas entradas sustentan resultados ya emitidos: desactívela en su lugar.
+        } @else {
+          No tiene tatuajes asociados, así que puede borrarse sin dejar referencias sueltas. La acción no se deshace.
+        }
+      </p>
+
+      <div class="mt-4 flex items-center justify-end gap-2">
+        <button (click)="cancelDelete()" class="px-3 py-2 text-[13px] font-medium text-slate-600 hover:bg-slate-100 rounded-md">
+          Cancelar
+        </button>
+        <button
+          (click)="confirmDelete()"
+          [disabled]="isBusy(band.id)"
+          class="px-3.5 py-2 text-[13px] font-semibold text-white bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 rounded-md flex items-center gap-1.5"
+        >
+          @if (isBusy(band.id)) {
+            <app-icon name="loader" [size]="14" class="spin" /> Borrando…
+          } @else {
+            Borrar
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+}

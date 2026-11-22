@@ -29,32 +29,114 @@
         <div class="text-[20px] font-semibold tabular text-navy-900">{{ validatedCount() }}</div>
       </div>
     </div>
-    <div class="bg-white rounded-lg border border-slate-200 shadow-card p-4 flex items-center gap-3">
+    <button
+      type="button"
+      (click)="togglePendingBand()"
+      [title]="'Ver solo los tatuajes que esperan clasificación'"
+      class="bg-white rounded-lg border shadow-card p-4 flex items-center gap-3 text-left transition-colors"
+      [class]="pendingBandFilter() ? 'border-accent ring-2 ring-accent/20' : 'border-slate-200 hover:bg-slate-50'"
+    >
       <div class="w-9 h-9 grid place-items-center rounded-md text-amber-700 bg-amber-50"><app-icon name="plus-circle" [size]="16" /></div>
       <div>
-        <div class="text-[11px] text-slate-500 uppercase tracking-wider">En revisión</div>
-        <div class="text-[20px] font-semibold tabular text-navy-900">{{ pendingCount() }}</div>
+        <div class="text-[11px] text-slate-500 uppercase tracking-wider">Sin clasificar</div>
+        <div class="text-[20px] font-semibold tabular text-navy-900">{{ withoutBandCount() }}</div>
       </div>
-    </div>
+    </button>
   </div>
 
   <!-- Filters / actions bar -->
-  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-3 flex items-center gap-3 flex-wrap">
-    <div class="relative flex-1 min-w-[240px]">
-      <app-icon name="search" [size]="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-      <input
-        [value]="search()"
-        (input)="onSearchInput($event)"
-        placeholder="Buscar por código o banda…"
-        class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-      />
+  <div class="bg-white rounded-lg border border-slate-200 shadow-card p-3 space-y-3">
+    <div class="flex items-center gap-3 flex-wrap">
+      <div class="relative flex-1 min-w-[240px]">
+        <app-icon name="search" [size]="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          [value]="search()"
+          (input)="onSearchInput($event)"
+          placeholder="Buscar por código, nombre, descripción o banda…"
+          class="w-full pl-9 pr-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+        />
+      </div>
+      @if (canManage) {
+        <button
+          (click)="openForm()"
+          class="px-3.5 py-2 text-[13px] font-medium text-white bg-accent hover:bg-accent-600 rounded-md flex items-center gap-1.5 shadow-card"
+        >
+          <app-icon name="plus" [size]="14" [strokeWidth]="2.5" /> Nuevo tatuaje
+        </button>
+      } @else {
+        <span class="text-[12px] text-slate-500 flex items-center gap-1.5">
+          <app-icon name="lock" [size]="13" class="text-slate-400" />
+          Solo consulta: el catálogo lo gestiona un supervisor
+        </span>
+      }
     </div>
-    <button
-      (click)="openForm()"
-      class="px-3.5 py-2 text-[13px] font-medium text-white bg-accent hover:bg-accent-600 rounded-md flex items-center gap-1.5 shadow-card"
-    >
-      <app-icon name="plus" [size]="14" [strokeWidth]="2.5" /> Nuevo tatuaje
-    </button>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      <select
+        [value]="categoryFilter()"
+        (change)="onCategoryChange($event)"
+        class="px-3 py-2 text-[12.5px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        <option value="">Toda categoría</option>
+        @for (category of facets().categories; track category) {
+          <option [value]="category">{{ category }}</option>
+        }
+      </select>
+
+      <select
+        [value]="bodyLocationFilter()"
+        (change)="onBodyLocationChange($event)"
+        class="px-3 py-2 text-[12.5px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        <option value="">Toda ubicación</option>
+        @for (location of facets().bodyLocations; track location) {
+          <option [value]="location">{{ location }}</option>
+        }
+      </select>
+
+      <select
+        [value]="tagFilter()"
+        (change)="onTagChange($event)"
+        class="px-3 py-2 text-[12.5px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        <option value="">Toda etiqueta</option>
+        @for (tag of facets().tags; track tag) {
+          <option [value]="tag">{{ tag }}</option>
+        }
+      </select>
+
+      <select
+        [value]="validatedFilter()"
+        (change)="onValidatedChange($event)"
+        class="px-3 py-2 text-[12.5px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+      >
+        <option value="all">Validados y pendientes</option>
+        <option value="yes">Solo validados</option>
+        <option value="no">Solo pendientes</option>
+      </select>
+    </div>
+
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      @if (pendingBandFilter()) {
+        <p class="text-[12px] text-navy-800 bg-accent/10 px-3 py-1.5 rounded-md flex items-center gap-1.5">
+          <app-icon name="info" [size]="13" />
+          Mostrando solo lo que espera clasificación. Asigne la banda y valide para que el sistema
+          pueda atribuir futuras coincidencias.
+        </p>
+      } @else {
+        <span></span>
+      }
+
+      @if (hasFilters()) {
+        <button
+          type="button"
+          (click)="clearFilters()"
+          class="px-3 py-1.5 text-[12px] font-medium text-slate-600 hover:bg-slate-100 rounded-md flex items-center gap-1.5"
+        >
+          <app-icon name="x" [size]="12" /> Limpiar filtros
+        </button>
+      }
+    </div>
   </div>
 
   <!-- Table -->
@@ -74,9 +156,11 @@
               <th class="px-4 py-2.5 font-medium">Tatuaje</th>
               <th class="px-4 py-2.5 font-medium">Código</th>
               <th class="px-4 py-2.5 font-medium">Banda asociada</th>
+              <th class="px-4 py-2.5 font-medium">Clasificación</th>
               <th class="px-4 py-2.5 font-medium">Procedencia</th>
               <th class="px-4 py-2.5 font-medium">Estado</th>
               <th class="px-4 py-2.5 font-medium">Añadido</th>
+              <th class="px-4 py-2.5 font-medium text-right">Acciones</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -87,14 +171,27 @@
                 <td class="px-4 py-3 font-medium">
                   @if (row.item.band) {
                     <span class="text-slate-800">{{ row.item.band }}</span>
+                  } @else if (!canManage) {
+                    <span class="text-[12px] text-slate-400 italic">Sin banda asignada</span>
+                    @if (row.item.originAnalysisId) {
+                      <a
+                        [routerLink]="['/results', row.item.originAnalysisId]"
+                        class="text-[11px] text-accent hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <app-icon name="file-text" [size]="11" /> Ver caso de origen
+                      </a>
+                    }
                   } @else {
-                    <div class="flex items-center gap-1.5 min-w-[200px]">
-                      <input
-                        [value]="bandDraftFor(row.item.catalogId)"
-                        (input)="onBandDraftInput(row.item.catalogId, $event)"
-                        placeholder="Asignar banda…"
-                        class="flex-1 px-2 py-1 text-[12px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-                      />
+                    <div class="flex items-center gap-1.5 min-w-[240px]">
+                      <div class="flex-1">
+                        <app-combobox
+                          [options]="facets().bands"
+                          [value]="bandDraftFor(row.item.catalogId)"
+                          (valueChange)="setBandDraft(row.item.catalogId, $event)"
+                          placeholder="Asignar banda…"
+                          customHint="Banda nueva: se creará al asignarla."
+                        />
+                      </div>
                       <button
                         (click)="assignBand(row.item.catalogId)"
                         [disabled]="!bandDraftFor(row.item.catalogId).trim() || isAssigning(row.item.catalogId)"
@@ -120,23 +217,72 @@
                     }
                   }
                 </td>
+                <td class="px-4 py-3">
+                  @if (row.item.name || row.item.category || row.item.bodyLocation || row.item.tags.length) {
+                    <div class="leading-tight space-y-0.5 max-w-[220px]">
+                      @if (row.item.name) {
+                        <div class="text-slate-800">{{ row.item.name }}</div>
+                      }
+                      @if (row.item.category || row.item.bodyLocation) {
+                        <div class="text-[11px] text-slate-500">
+                          {{ row.item.category ?? '—' }} · {{ row.item.bodyLocation ?? '—' }}
+                        </div>
+                      }
+                      @if (row.item.tags.length) {
+                        <div class="flex flex-wrap gap-1 pt-0.5">
+                          @for (tag of row.item.tags; track tag) {
+                            <span class="text-[10.5px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{{ tag }}</span>
+                          }
+                        </div>
+                      }
+                    </div>
+                  } @else {
+                    <span class="text-slate-400">—</span>
+                  }
+                </td>
                 <td class="px-4 py-3 text-slate-600">{{ row.item.source }}</td>
                 <td class="px-4 py-3">
-                  @if (row.item.validated) {
+                  @if (canManage) {
+                    <button
+                      type="button"
+                      (click)="toggleValidated(row.item)"
+                      [disabled]="isValidating(row.item.catalogId)"
+                      [title]="row.item.validated ? 'Quitar la validación' : 'Confirmar esta entrada del catálogo'"
+                      class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 flex items-center gap-1 disabled:opacity-60"
+                      [class]="row.item.validated ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 hover:bg-emerald-100' : 'bg-amber-50 text-amber-700 ring-amber-200 hover:bg-amber-100'"
+                    >
+                      @if (isValidating(row.item.catalogId)) {
+                        <app-icon name="loader" [size]="10" class="spin" />
+                      } @else {
+                        <app-icon [name]="row.item.validated ? 'check' : 'clock'" [size]="10" />
+                      }
+                      {{ row.item.validated ? 'Validado' : 'Pendiente' }}
+                    </button>
+                  } @else if (row.item.validated) {
                     <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-emerald-50 text-emerald-700 ring-emerald-200">Validado</span>
                   } @else {
-                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-amber-50 text-amber-700 ring-amber-200">En revisión</span>
+                    <span class="text-[11px] font-medium px-2 py-0.5 rounded-full ring-1 bg-amber-50 text-amber-700 ring-amber-200">Pendiente</span>
                   }
                 </td>
                 <td class="px-4 py-3 text-slate-500 font-mono text-[12px]">{{ row.date | date: 'dd/MM/yyyy' }}</td>
+                <td class="px-4 py-3 text-right">
+                  @if (canManage) {
+                    <button
+                      (click)="openEditMetadata(row.item)"
+                      class="text-[12px] font-medium text-slate-600 hover:underline flex items-center gap-1 ml-auto"
+                    >
+                      <app-icon name="pencil" [size]="12" /> Editar datos
+                    </button>
+                  }
+                </td>
               </tr>
             } @empty {
               <tr>
-                <td colspan="6" class="px-4 py-12 text-center text-[13px] text-slate-500">
-                  @if (items().length === 0) {
-                    El catálogo todavía no tiene entradas. Use «Nuevo tatuaje» para enrolar el primero.
+                <td colspan="8" class="px-4 py-12 text-center text-[13px] text-slate-500">
+                  @if (hasFilters()) {
+                    No hay entradas que coincidan con los filtros.
                   } @else {
-                    No hay entradas que coincidan con la búsqueda.
+                    El catálogo todavía no tiene entradas. Use «Nuevo tatuaje» para enrolar el primero.
                   }
                 </td>
               </tr>
@@ -146,7 +292,10 @@
       </div>
 
       <div class="px-4 py-3 border-t border-slate-200 text-[12.5px] text-slate-500">
-        Mostrando <span class="font-medium text-slate-900">{{ rows().length }}</span> de <span class="font-medium text-slate-900">{{ total() }}</span> tatuajes
+        Mostrando <span class="font-medium text-slate-900">{{ rows().length }}</span> tatuajes
+        @if (hasFilters()) {
+          <span>que coinciden con los filtros</span>
+        }
       </div>
     </div>
   }
@@ -172,20 +321,78 @@
           </div>
         </div>
 
-        <label class="block">
+        <div>
           <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Banda asociada</span>
-          <input
-            [value]="band()"
-            (input)="onBandInput($event)"
-            placeholder="Ej. Los Pulpos"
-            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
-          />
-        </label>
+          <div class="mt-1.5">
+            <app-combobox
+              [options]="facets().bands"
+              [value]="band()"
+              (valueChange)="band.set($event)"
+              placeholder="Elija una banda o escriba una nueva"
+              customHint="Esa banda no existe todavía: se creará al guardar."
+            />
+          </div>
+        </div>
 
-        <p class="text-[11px] text-slate-500 flex items-start gap-1.5">
-          <app-icon name="info" [size]="13" class="mt-0.5 shrink-0" />
-          Los campos de categoría, ubicación y descripción se incorporarán en una fase posterior. Por ahora se registra imagen y banda.
-        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Nombre del patrón</span>
+            <input
+              [value]="metaName()"
+              (input)="onMetaNameInput($event)"
+              placeholder="Ej. Corona de tres puntas"
+              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </label>
+
+          <div>
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Categoría</span>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().categories"
+                [value]="metaCategory()"
+                (valueChange)="metaCategory.set($event)"
+                placeholder="Elija o escriba una categoría"
+                customHint="Categoría nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
+
+          <div>
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Ubicación corporal</span>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().bodyLocations"
+                [value]="metaBodyLocation()"
+                (valueChange)="metaBodyLocation.set($event)"
+                placeholder="Elija o escriba una ubicación"
+                customHint="Ubicación nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
+
+          <div class="sm:col-span-2">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Etiquetas</span>
+            <div class="mt-1.5">
+              <app-tag-input
+                [value]="metaTags()"
+                [suggestions]="facets().tags"
+                (valueChange)="metaTags.set($event)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Descripción</span>
+          <textarea
+            [value]="metaDescription()"
+            (input)="onMetaDescriptionInput($event)"
+            rows="3"
+            placeholder="Rasgos que permiten reconocerlo, procedencia de la imagen, referencia del expediente…"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+          ></textarea>
+        </label>
 
         @if (formError()) {
           <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ formError() }}</p>
@@ -210,6 +417,108 @@
             }
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Edicion de los campos descriptivos (RF-09) -->
+@if (editingId(); as catalogId) {
+  <div class="fixed inset-0 z-50 bg-navy-950/60 backdrop-blur-sm grid place-items-center p-6">
+    <div class="bg-white rounded-xl shadow-pop w-full max-w-[560px] max-h-[90vh] overflow-auto">
+      <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">
+        <div>
+          <h3 class="text-[16px] font-semibold text-navy-900">Datos del tatuaje</h3>
+          <p class="text-[12px] text-slate-500 mt-0.5 font-mono">{{ catalogId }}</p>
+        </div>
+        <button (click)="closeEditMetadata()" class="p-1.5 text-slate-500 hover:bg-slate-100 rounded"><app-icon name="x" [size]="16" /></button>
+      </div>
+
+      <div class="p-6 space-y-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Nombre del patrón</span>
+            <input
+              [value]="metaName()"
+              (input)="onMetaNameInput($event)"
+              placeholder="Ej. Corona de tres puntas"
+              class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30"
+            />
+          </label>
+
+          <div>
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Categoría</span>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().categories"
+                [value]="metaCategory()"
+                (valueChange)="metaCategory.set($event)"
+                placeholder="Elija o escriba una categoría"
+                customHint="Categoría nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
+
+          <div>
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Ubicación corporal</span>
+            <div class="mt-1.5">
+              <app-combobox
+                [options]="facets().bodyLocations"
+                [value]="metaBodyLocation()"
+                (valueChange)="metaBodyLocation.set($event)"
+                placeholder="Elija o escriba una ubicación"
+                customHint="Ubicación nueva: quedará disponible para los siguientes registros."
+              />
+            </div>
+          </div>
+
+          <div class="sm:col-span-2">
+            <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Etiquetas</span>
+            <div class="mt-1.5">
+              <app-tag-input
+                [value]="metaTags()"
+                [suggestions]="facets().tags"
+                (valueChange)="metaTags.set($event)"
+              />
+            </div>
+          </div>
+        </div>
+
+        <label class="block">
+          <span class="text-[11px] font-medium text-slate-600 uppercase tracking-wider">Descripción</span>
+          <textarea
+            [value]="metaDescription()"
+            (input)="onMetaDescriptionInput($event)"
+            rows="3"
+            placeholder="Rasgos que permiten reconocerlo, procedencia de la imagen, referencia del expediente…"
+            class="mt-1.5 w-full px-3 py-2 text-[13px] bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-accent/30 resize-none"
+          ></textarea>
+        </label>
+
+        <p class="text-[11px] text-slate-500 flex items-start gap-1.5">
+          <app-icon name="info" [size]="13" class="mt-0.5 shrink-0" />
+          La imagen no se puede sustituir: el vector con el que el sistema compara se calculó a partir de ella, así que
+          cambiarla dejaría el registro describiendo algo distinto de lo que realmente se compara.
+        </p>
+
+        @if (metaError()) {
+          <p class="px-3 py-2 rounded-md bg-rose-50 border border-rose-200 text-[12px] text-rose-700" role="alert">{{ metaError() }}</p>
+        }
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-200 flex items-center justify-end gap-2 bg-slate-50">
+        <button (click)="closeEditMetadata()" class="px-4 py-2 text-[13px] text-slate-700 hover:bg-slate-200 rounded-md font-medium">Cancelar</button>
+        <button
+          (click)="saveMetadata()"
+          [disabled]="isSavingMeta()"
+          class="px-4 py-2 text-[13px] text-white bg-accent hover:bg-accent-600 disabled:bg-slate-300 rounded-md font-semibold shadow-card flex items-center gap-2"
+        >
+          @if (isSavingMeta()) {
+            <app-icon name="loader" [size]="14" class="spin" /> Guardando…
+          } @else {
+            Guardar
+          }
+        </button>
       </div>
     </div>
   </div>

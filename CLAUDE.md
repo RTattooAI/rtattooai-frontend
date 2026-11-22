@@ -38,6 +38,11 @@ Consume el backend REAL (ya funcional) según API_CONTRACT.md (secciones B/C), J
 - Interceptor que agrega el JWT y maneja 401 redirigiendo a login.
 - URL del backend por environment (no hardcodear).
 - Las cajas (bbox) se dibujan escalando de píxeles de imagen original al tamaño renderizado.
+- `angular.json` (`production`) fija `optimization.styles.inlineCritical: false` a propósito:
+  la optimización por defecto de Angular inyecta un `<link media="print" onload="this.media='all'">`
+  para no bloquear el render inicial, pero la CSP de `nginx.conf` (`script-src 'self'`, sin
+  `unsafe-inline`) bloquea ese `onload` inline — sin este flag, el CSS nunca se aplica a pantalla
+  y la app se ve totalmente sin estilos (ver `deploy/README.md`, sección "Si algo falla").
 
 ## Reglas de trabajo
 - Ramas feature/*, nunca commits directos a main.

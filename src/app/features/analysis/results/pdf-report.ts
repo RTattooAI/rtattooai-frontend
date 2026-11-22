@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { Analysis, Detection } from '../../../core/models';
+import { Analysis, AnalysisImage, Detection } from '../../../core/models';
 import { detectionColor } from '../../../shared/ui';
 
 const PAGE_MARGIN = 14;
@@ -16,8 +16,21 @@ const VALIDATION_LABELS: Record<Detection['validationStatus'], string> = {
 
 const VERDICT_LABELS: Record<Detection['verdict'], string> = {
   match: 'Coincidencia',
+  // El reporte es el documento que sale del sistema: la franja de revisión tiene
+  // que leerse como lo que es, no como una coincidencia atenuada.
+  review: 'Posible; requiere revisión',
   no_match: 'Sin coincidencia concluyente'
 };
+
+const MATCH_TYPE_LABELS: Record<Detection['matchType'], string> = {
+  band: 'Coincidencia con banda registrada',
+  unclassified: 'Tatuaje ya visto, sin banda asignada',
+  review: 'Candidato por debajo del umbral',
+  none: 'Sin coincidencia'
+};
+
+/** RF-07: ningún reporte puede circular sin esta advertencia. */
+const WATERMARK_TEXT = 'HERRAMIENTA DE APOYO — NO DETERMINANTE';
 
 interface LoadedImage {
   dataUrl: string;
@@ -83,6 +96,12 @@ export async function buildAnalysisPdf(analysis: Analysis): Promise<jsPDF> {
     doc.text([analysis.personName, analysis.documentId].filter(Boolean).join('  ·  '), PAGE_MARGIN, y);
     y += 5;
   }
+
+  if (analysis.images.length > 1) {
+    doc.text(`${analysis.images.length} fotografías analizadas`, PAGE_MARGIN, y);
+    y += 5;
+  }
+
   doc.setTextColor(0);
   y += 2;
 
@@ -97,54 +116,100 @@ export async function buildAnalysisPdf(analysis: Analysis): Promise<jsPDF> {
   doc.setTextColor(0);
   y += disclaimerHeight + 6;
 
-  if (analysis.imageWidth && analysis.imageHeight) {
-    try {
-      const image = await loadImage(analysis.imageUrl);
-      const maxWidth = CONTENT_WIDTH;
-      const maxHeight = 95;
-      const scale = Math.min(maxWidth / image.width, maxHeight / image.height);
-      const drawWidth = image.width * scale;
-      const drawHeight = image.height * scale;
-
-      doc.addImage(image.dataUrl, image.format, PAGE_MARGIN, y, drawWidth, drawHeight);
-
-      const bboxScale = drawWidth / analysis.imageWidth;
-      analysis.detections.forEach((det, index) => {
-        const [r, g, b] = hexToRgb(detectionColor(Math.round(det.confidence * 100)));
-        const bx = PAGE_MARGIN + det.bbox.x * bboxScale;
-        const by = y + det.bbox.y * bboxScale;
-        const bw = det.bbox.width * bboxScale;
-        const bh = det.bbox.height * bboxScale;
-
-        doc.setDrawColor(r, g, b);
-        doc.setLineWidth(0.7);
-        doc.rect(bx, by, bw, bh);
-
-        doc.setFillColor(r, g, b);
-        doc.rect(bx, by - 4, 5, 4, 'F');
-        doc.setFontSize(7);
-        doc.setTextColor(255);
-        doc.text(`${index + 1}`, bx + 1.3, by - 1);
-        doc.setTextColor(0);
-      });
-
-      y += drawHeight + 8;
-    } catch {
-      doc.setFontSize(9);
-      doc.setTextColor(180, 0, 0);
-      doc.text('No se pudo cargar la imagen original para incluirla en el reporte.', PAGE_MARGIN, y);
-      doc.setTextColor(0);
-      y += 8;
-    }
+  // Una fotografía por bloque, cada una con las cajas de sus propias detecciones.
+  for (const [index, image] of analysis.images.entries()) {
+    y = await drawImageBlock(doc, y, analysis, image, index);
   }
 
+  y = drawDetections(doc, y, analysis);
+
+  applyWatermark(doc);
+
+  return doc;
+}
+
+async function drawImageBlock(
+  doc: jsPDF,
+  y: number,
+  analysis: Analysis,
+  image: AnalysisImage,
+  index: number
+): Promise<number> {
+  const detections = analysis.detections.filter((d) => d.imageId === image.id);
+  const varias = analysis.images.length > 1;
+
+  if (varias) {
+    y = ensureSpace(doc, y, 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    const origen = image.source === 'camara' ? 'captura con cámara' : 'archivo cargado';
+    doc.text(`Fotografía ${index + 1} de ${analysis.images.length} — ${origen}`, PAGE_MARGIN, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+  }
+
+  if (image.status === 'failed') {
+    y = ensureSpace(doc, y, 8);
+    doc.setTextColor(180, 0, 0);
+    doc.text('Esta fotografía no pudo procesarse.', PAGE_MARGIN, y);
+    doc.setTextColor(0);
+    return y + 8;
+  }
+
+  if (!image.width || !image.height) {
+    return y;
+  }
+
+  try {
+    const loaded = await loadImage(image.imageUrl);
+    const scale = Math.min(CONTENT_WIDTH / loaded.width, 95 / loaded.height);
+    const drawWidth = loaded.width * scale;
+    const drawHeight = loaded.height * scale;
+
+    y = ensureSpace(doc, y, drawHeight + 8);
+    doc.addImage(loaded.dataUrl, loaded.format, PAGE_MARGIN, y, drawWidth, drawHeight);
+
+    const bboxScale = drawWidth / image.width;
+    detections.forEach((det, detIndex) => {
+      const [r, g, b] = hexToRgb(detectionColor(Math.round(det.confidence * 100)));
+      const bx = PAGE_MARGIN + det.bbox.x * bboxScale;
+      const by = y + det.bbox.y * bboxScale;
+
+      doc.setDrawColor(r, g, b);
+      doc.setLineWidth(0.7);
+      doc.rect(bx, by, det.bbox.width * bboxScale, det.bbox.height * bboxScale);
+
+      doc.setFillColor(r, g, b);
+      doc.rect(bx, by - 4, 5, 4, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(255);
+      doc.text(`${detIndex + 1}`, bx + 1.3, by - 1);
+      doc.setTextColor(0);
+    });
+
+    return y + drawHeight + 8;
+  } catch {
+    doc.setFontSize(9);
+    doc.setTextColor(180, 0, 0);
+    doc.text('No se pudo cargar esta imagen para incluirla en el reporte.', PAGE_MARGIN, y);
+    doc.setTextColor(0);
+    return y + 8;
+  }
+}
+
+function drawDetections(doc: jsPDF, y: number, analysis: Analysis): number {
   analysis.detections.forEach((det, index) => {
     y = ensureSpace(doc, y, 20);
+
+    // Con varias fotografías hay que decir de cuál salió cada detección.
+    const imageIndex = analysis.images.findIndex((i) => i.id === det.imageId);
+    const origen = analysis.images.length > 1 && imageIndex >= 0 ? ` · fotografía ${imageIndex + 1}` : '';
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.text(
-      `Detección ${index + 1} — ${VERDICT_LABELS[det.verdict]} (${Math.round(det.confidence * 100)}%)`,
+      `Detección ${index + 1}${origen} — ${VERDICT_LABELS[det.verdict]} (${Math.round(det.confidence * 100)}%)`,
       PAGE_MARGIN,
       y
     );
@@ -152,8 +217,23 @@ export async function buildAnalysisPdf(analysis: Analysis): Promise<jsPDF> {
 
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
+    doc.text(`Tipo de coincidencia: ${MATCH_TYPE_LABELS[det.matchType]}`, PAGE_MARGIN, y);
+    y += 4.5;
     doc.text(`Validación pericial: ${VALIDATION_LABELS[det.validationStatus]}`, PAGE_MARGIN, y);
     y += 5;
+
+    if (det.matchType === 'unclassified') {
+      // Sin esta línea, el lector del expediente vería una coincidencia con una
+      // banda vacía y podría interpretarla como una atribución.
+      const aviso = doc.splitTextToSize(
+        'Nota: el tatuaje coincide con una entrada del catálogo que aún no tiene banda asignada. ' +
+          'Indica que el sistema ya lo había visto en otro caso, no que pertenezca a una organización.',
+        CONTENT_WIDTH
+      ) as string[];
+      y = ensureSpace(doc, y, aviso.length * 4 + 2);
+      doc.text(aviso, PAGE_MARGIN, y);
+      y += aviso.length * 4 + 2;
+    }
 
     if (det.validationNotes) {
       const noteLines = doc.splitTextToSize(`Observaciones: ${det.validationNotes}`, CONTENT_WIDTH) as string[];
@@ -183,5 +263,25 @@ export async function buildAnalysisPdf(analysis: Analysis): Promise<jsPDF> {
     y += 5;
   });
 
-  return doc;
+  return y;
+}
+
+/**
+ * RF-07: cada página del reporte lleva la marca de agua que impide presentarlo como
+ * una identificación concluyente, aunque se imprima o circule una hoja suelta.
+ */
+function applyWatermark(doc: jsPDF): void {
+  const total = doc.getNumberOfPages();
+
+  for (let page = 1; page <= total; page++) {
+    doc.setPage(page);
+    doc.saveGraphicsState();
+    doc.setGState(doc.GState({ opacity: 0.12 }));
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(24);
+    doc.setTextColor(150, 30, 30);
+    doc.text(WATERMARK_TEXT, PAGE_WIDTH / 2, PAGE_HEIGHT / 2, { align: 'center', angle: 35 });
+    doc.restoreGraphicsState();
+    doc.setTextColor(0);
+  }
 }

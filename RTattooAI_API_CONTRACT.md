@@ -244,3 +244,461 @@ Activa o desactiva una cuenta (un usuario inactivo no puede iniciar sesión). **
 - Metadatos (banda, procedencia, autor, fecha, validación) → SQL Server, para trazabilidad y auditoría.
 - Concurrencia: enrolamiento es de baja frecuencia; last-write-wins sobre el índice persistido es aceptable para la demo.
 - Escala de producción (narrativa de tesis, no se construye ahora): Azure AI Search vectorial o pgvector.
+
+---
+
+## E. Endpoints añadidos en el endurecimiento (setiembre 2026)
+
+Incorporados al preparar la validación del OE4 y el despliegue en infraestructura propia. Detalle y motivación en `docs/RTattooAI_ENDURECIMIENTO.md`.
+
+### `POST /api/analyses/{id}/retry`
+Reprocesa un análisis en estado `failed` reutilizando la imagen ya almacenada.
+**Response 200:** objeto `Analysis` actualizado.
+**400** si el análisis no está en estado `failed` o no se pudo recuperar su imagen. **404** si no existe o no pertenece al usuario (los roles `supervisor` y `admin` pueden reintentar cualquiera).
+
+### `GET /api/analyses?scope=all`
+`scope=all` devuelve el historial de todos los analistas. Solo surte efecto con rol `supervisor` o `admin`; para el resto se ignora y se devuelve el historial propio. Los listados devuelven como máximo 200 registros, del más reciente al más antiguo.
+
+### `GET /api/analyses/export?scope=all|mine`
+Exporta una fila por detección en CSV (UTF-8 con BOM). **Requiere rol `supervisor` o `admin`.**
+Columnas: `analisis_id, codigo, fecha_utc, analista, estado, tiempo_ms, version_modelo, persona, documento, deteccion_id, confianza, veredicto, banda_top1, similitud_top1, estado_validacion, observaciones, fecha_validacion_utc`.
+
+### `GET /api/reviews`
+Detecciones en estado `review` pendientes de segunda revisión. **Requiere rol `supervisor` o `admin`.**
+**Response 200:**
+```json
+[
+  {
+    "analysisId": "guid",
+    "detectionId": "guid",
+    "thumbnailUrl": "/api/files/consultas/.../thumbnail.png?exp=...&sig=...",
+    "confidence": 0.91,
+    "verdict": "match",
+    "topBand": "Los Pulpos",
+    "topSimilarity": 0.88,
+    "notes": "Requiere contraste con archivo fotográfico",
+    "requestedBy": "Analista 1",
+    "requestedAt": "2026-09-03T14:00:00Z",
+    "personName": null,
+    "documentId": null
+  }
+]
+```
+
+### `PATCH /api/catalog/{catalogId}/validation`
+Confirma o revierte la validación de una entrada del catálogo. **Requiere rol `supervisor` o `admin`.**
+**Request:** `{ "validated": true }`
+**Response 200:** `CatalogItem` actualizado. **400** si se intenta validar una entrada sin banda asignada. **404** si el `catalogId` no existe.
+
+### `GET /api/audit?limit=100`
+Registro de auditoría, del más reciente al más antiguo (`limit` entre 1 y 500). **Requiere rol `admin`.**
+**Response 200:**
+```json
+[
+  {
+    "id": "guid",
+    "userId": "guid",
+    "userEmail": "analista@pnp.gob.pe",
+    "userRole": "analyst",
+    "action": "POST /api/analyses",
+    "resource": "id=guid",
+    "statusCode": 201,
+    "ipAddress": "190.0.0.1",
+    "occurredAt": "2026-09-03T14:00:00Z"
+  }
+]
+```
+
+### `PATCH /api/users/{id}/password`
+Restablece la contraseña de una cuenta. **Requiere rol `admin`.**
+**Request:** `{ "password": "..." }` · **Response 200:** objeto `User`. **400** si no cumple la política. **404** si el usuario no existe.
+
+### `POST /api/auth/change-password`
+Cambio de contraseña del usuario autenticado. Limitado a 5 intentos por minuto y por IP.
+**Request:** `{ "currentPassword": "...", "newPassword": "..." }`
+**Response 204.** **400** si la contraseña actual no coincide o la nueva no cumple la política.
+
+### `GET /api/files/{ruta}?exp={unix}&sig={hmac}`
+Entrega las imágenes almacenadas. **No requiere token**: la autorización es la firma HMAC-SHA256 con caducidad que genera el backend, porque un `<img src>` no puede enviar cabeceras. Responde `404` de forma indistinta ante firma inválida, caducada, ruta no permitida o archivo inexistente.
+
+### Cambios en endpoints existentes
+
+- **Control de acceso.** `POST /api/catalog` y `PATCH /api/catalog/{catalogId}/band` pasan a requerir rol `supervisor` o `admin`. `GET /api/catalog` sigue disponible para cualquier usuario autenticado, y `POST /api/analyses/{id}/enroll` continúa disponible para el analista (crea entradas sin banda).
+- **Alcance por rol.** `GET /api/analyses/{id}` y `PATCH .../validation` permiten a `supervisor` y `admin` operar sobre análisis de cualquier analista; para el rol `analyst` el comportamiento no cambia (404 ante un análisis ajeno).
+- **Validación de imágenes.** `POST /api/analyses` y `POST /api/catalog` verifican la firma real del archivo (JPG/PNG) y un máximo de 80 MP, además del tipo declarado y los 10 MB. El tipo detectado sustituye al declarado.
+- **Sesiones.** Un token de una cuenta desactivada deja de ser válido de inmediato (401), sin esperar a su caducidad.
+- **Política de contraseñas.** Mínimo 8 caracteres combinando letras y números; se rechazan contraseñas comunes o que contengan el correo del usuario.
+- **URL de imágenes.** `imageUrl`, `thumbnailUrl` y `referenceImageUrl` son rutas relativas firmadas (`/api/files/...`) cuando el almacenamiento es local. Con `Storage:Provider=azure` se mantiene el comportamiento anterior con SAS.
+- **Límite de peticiones.** 240 por minuto y por IP en toda la API; 5 por minuto en inicio de sesión y cambio de contraseña. Al excederlo se responde 429.
+
+---
+
+## F. Análisis con varias imágenes y captura por cámara (setiembre 2026)
+
+Un caso real necesita varias tomas del mismo detenido: distintas zonas del cuerpo o distintos ángulos del mismo tatuaje. El análisis pasa a agrupar todas esas fotografías, cada una con su propio procesamiento.
+
+### Cambios en `POST /api/analyses`
+
+**Request:** `multipart/form-data`
+- `images`: el campo se repite una vez por fotografía (entre 1 y 10). Se sigue aceptando `image` como nombre alternativo, por compatibilidad con la versión de una sola imagen.
+- `sources`: procedencia de cada fotografía (`archivo` | `camara`), repetido una vez por imagen y **en el mismo orden que `images`**. Un mismo análisis puede mezclar fotografías cargadas y tomas de la cámara, y cada una queda registrada con la suya. Si falta, o no coincide en número con las imágenes, se usa `source` para todas.
+- `source`: valor común para todo el análisis, `archivo` (por defecto) o `camara`. Se conserva por compatibilidad; con él solo, una mezcla quedaba registrada entera como `archivo`.
+- `personName`, `documentId`, `notes`: sin cambios.
+
+Formatos admitidos: **JPG, PNG y WEBP** (RF-01), hasta 10 MB y 80 MP por imagen. Si alguna imagen es inválida o se superan las 10, se responde **400** y **no se crea el análisis**: nunca queda un caso a medias.
+
+### Cambios en el esquema `Analysis`
+
+```json
+{
+  "id": "guid",
+  "status": "completed",
+  "imageUrl": "/api/files/consultas/.../original.jpg?exp=...&sig=...",
+  "thumbnailUrl": "/api/files/...",
+  "imageWidth": 1080,
+  "imageHeight": 1920,
+  "images": [
+    {
+      "id": "guid-imagen",
+      "order": 0,
+      "imageUrl": "/api/files/...",
+      "thumbnailUrl": "/api/files/...",
+      "width": 1080,
+      "height": 1920,
+      "status": "completed",
+      "modelVersion": "yolov8m + dinov2-vits14 + head-v1",
+      "processingMs": 980,
+      "source": "archivo"
+    }
+  ],
+  "detections": [
+    { "id": "guid-deteccion", "imageId": "guid-imagen", "bbox": { "x": 120, "y": 340, "width": 200, "height": 180 }, "...": "..." }
+  ]
+}
+```
+
+- `images[]`: una entrada por fotografía, ordenada por `order`. `status` por imagen: `completed` | `no_detection` | `failed`. `source`: `archivo` | `camara`.
+- `detections[].imageId`: **nuevo y obligatorio**. Indica en qué fotografía aparece la detección; sin él no se puede dibujar la caja ni recortar el enrolamiento sobre la imagen correcta.
+- `imageUrl`, `thumbnailUrl`, `imageWidth` y `imageHeight` del nivel raíz son la **portada**: una copia de la primera imagen. Se conservan por compatibilidad; el detalle está en `images`.
+- `status` del análisis agrega el de sus imágenes: `completed` si alguna tiene detecciones, `no_detection` si ninguna las tiene pero alguna se procesó, `failed` solo si todas fallaron.
+
+### Cambios en `GET /api/analyses` (historial)
+
+Cada elemento incorpora `imageCount` (entero ≥ 1), el número de fotografías del análisis.
+
+### Cambios en `POST /api/analyses/{id}/retry`
+
+Reprocesa **solo las imágenes en estado `failed`**, reutilizando las ya almacenadas. **400** si ninguna imagen del análisis falló.
+
+### `POST /api/analyses/preview`
+
+Modo asistido en vivo. Analiza un fotograma y responde **sin persistir absolutamente nada**: ni consulta, ni imagen almacenada, ni registro de auditoría. Es una ayuda de encuadre, no una consulta con valor probatorio.
+
+**Request:** `multipart/form-data` con `image` (un fotograma; el cliente lo envía reducido).
+**Response 200:**
+```json
+{
+  "imageWidth": 640,
+  "imageHeight": 480,
+  "modelVersion": "yolov8m + dinov2-vits14 + head-v1",
+  "processingMs": 984,
+  "detections": [
+    {
+      "bbox": { "x": 120, "y": 340, "width": 200, "height": 180 },
+      "confidence": 0.91,
+      "verdict": "match",
+      "matches": [ { "catalogId": "tat_00123", "band": "Los Pulpos", "similarity": 0.88, "referenceImageUrl": null } ]
+    }
+  ],
+  "disclaimer": "Vista asistida en vivo: resultado provisional que NO queda registrado. …"
+}
+```
+Las detecciones **no tienen identificador** porque no existen en la base de datos: no pueden validarse ni enrolarse. **503** si el servicio de inferencia no responde, para que el cliente omita ese fotograma y siga.
+
+**Límite de peticiones:** política propia de 90 por minuto y por IP, más alta que la de una acción normal porque el cliente la invoca en bucle. El cliente envía un fotograma por vez y deja **al menos 700 ms entre el inicio de uno y el del siguiente** (≈ 86 por minuto), con independencia de la latencia: desde que la inferencia corre en GPU la respuesta llega en unos 200 ms, y una pausa fija tras la respuesta agotaba el cupo antes de terminar el minuto.
+
+### Cabeceras
+
+`Permissions-Policy` pasa de `camera=()` a **`camera=(self)`** en la API y en nginx: con `camera=()` el navegador bloquea `getUserMedia` aunque el usuario conceda el permiso. El micrófono y la ubicación siguen bloqueados. La CSP del frontend añade `media-src 'self' blob:` para el visor de la cámara.
+
+---
+
+## G. Bandas, catálogo descriptivo, paginación y versionado de modelos (setiembre 2026)
+
+Cierra los requisitos funcionales que quedaban abiertos en TP1: RF-02, RF-09, RF-10, RF-12, RF-13, RF-16 y RF-17.
+
+### `GET /info` (servicio de inferencia, INTERNO)
+
+Composición exacta del modelo cargado. La consume el backend para versionar (RF-16).
+
+```json
+{
+  "model_version": "yolov8m + dinov2-vits14 + head-v1",
+  "detector": "yolov8m_best.onnx",
+  "embedder": "dinov2-vits14",
+  "head": "embed_head.pt",
+  "embedding_dim": 256,
+  "threshold": 0.55,
+  "margin": 0.05,
+  "det_conf": 0.25,
+  "det_iou": 0.45,
+  "gallery_size": 425,
+  "gallery_identities": 85,
+  "gallery_bands": 5
+}
+```
+
+### `GET /api/bands` · `POST` · `PUT /{id}` · `PATCH /{id}/status` · `DELETE /{id}`
+
+Mantenimiento de bandas criminales (RF-10). **Lectura** para cualquier usuario autenticado: el analista necesita conocer las bandas para trabajar. **Escritura** para `supervisor` y `admin`.
+
+```json
+{
+  "id": "0f8a…",
+  "name": "Los Pulpos",
+  "alias": "Pulpos",
+  "region": "La Libertad",
+  "dangerLevel": "alto",
+  "description": "…",
+  "active": true,
+  "tattooCount": 7,
+  "createdAt": "2026-09-09T12:00:00Z"
+}
+```
+
+- `dangerLevel` admite únicamente `bajo`, `medio` o `alto`, o `null`. Otro valor devuelve **400**. Se limita a tres para que el dato siga siendo agregable en el panel.
+- `name` es único; un duplicado devuelve **400**.
+- `DELETE` responde **409** si la banda tiene tatuajes en el catálogo: borrarla dejaría huérfanas entradas que sustentan resultados ya emitidos. Se desactiva con `PATCH /{id}/status`.
+
+### `GET /api/catalog` — filtros (RF-09)
+
+Parámetros opcionales: `band`, `category`, `bodyLocation`, `tag`, `validated` (`true`/`false`) y `q` (código, nombre, descripción o banda). Sin parámetros devuelve el catálogo completo, como antes.
+
+El filtro `tag` compara **etiquetas completas**, no subcadenas: con `LIKE`, `león` devolvería también `leones`.
+
+### `GET /api/catalog/facets`
+
+Valores que existen realmente en el catálogo, para que el cliente no ofrezca filtros que no devuelven nada.
+
+```json
+{ "bands": ["Los Pulpos"], "categories": ["Símbolo"], "bodyLocations": ["Antebrazo"], "tags": ["corona", "puntas"] }
+```
+
+### `PATCH /api/catalog/{catalogId}` (supervisor/admin)
+
+Campos descriptivos de una entrada. **No incluye la imagen**: el vector de la galería se calculó a partir de ella, así que sustituirla dejaría el registro describiendo algo distinto de lo que el sistema compara.
+
+```json
+{ "name": "Corona de tres puntas", "description": "…", "category": "Símbolo", "bodyLocation": "Antebrazo derecho", "tags": "corona, puntas" }
+```
+
+`tags` viaja como texto separado por comas y se devuelve normalizado como arreglo, en minúsculas y sin repetidos (máximo 12 etiquetas de 30 caracteres).
+
+### Cambios en `POST /api/catalog`
+
+El formulario acepta además `name`, `description`, `category`, `bodyLocation` y `tags`. Un campo ausente se guarda vacío; el resto del contrato no cambia.
+
+### Cambios en el esquema `CatalogItem`
+
+Se añaden `bandId`, `name`, `description`, `category`, `bodyLocation` y `tags` (arreglo de cadenas). Los campos anteriores se mantienen.
+
+### `GET /api/analyses` — paginación y filtros (RF-13)
+
+Parámetros: `scope`, `from`, `to` (fechas `yyyy-MM-dd`), `status`, `q`, `page` y `pageSize`.
+
+**La respuesta deja de ser un arreglo** y pasa a ser una página:
+
+```json
+{ "items": [ /* AnalysisListItem */ ], "total": 137, "page": 2, "pageSize": 25, "totalPages": 6 }
+```
+
+- El rango se interpreta por días completos: `to=2026-09-03` incluye todo el día 3.
+- `pageSize` se acota a 25 por defecto y a 100 como máximo: una sola petición no puede arrastrar la tabla entera.
+- Un `status` desconocido se ignora en vez de fallar; un filtro mal escrito no debe impedir ver el historial.
+- Desaparece el tope fijo de 200 registros.
+
+`GET /api/analyses/export` acepta los mismos filtros, de modo que lo exportado coincide con lo que se está viendo.
+
+### `GET /api/audit` — paginación y filtros (RF-15)
+
+Parámetros: `from`, `to`, `action`, `userEmail`, `page`, `pageSize` (50 por defecto, 200 máximo). Devuelve la misma forma de página que el historial. Sustituye al anterior `?limit=`.
+
+### `GET /api/audit/export` (admin) y `GET /api/dashboard/metrics/export` (supervisor/admin)
+
+CSV con BOM UTF-8. RF-17.
+
+- El de auditoría acepta los mismos filtros que `GET /api/audit` y está acotado a 50 000 filas: el registro crece sin límite por diseño (RNF-08 pide un año de retención).
+- El de métricas usa formato largo — `seccion,metrica,valor` — para que la serie diaria y las bandas más frecuentes quepan en el mismo archivo que los totales.
+
+En todas las exportaciones, un texto libre que empiece por `=`, `+`, `-` o `@` se antepone con un apóstrofo, para que Excel no lo interprete como fórmula.
+
+### `GET /api/models` (supervisor/admin) · `PUT /api/models` (admin)
+
+Inventario de versiones del modelo (RF-16).
+
+```json
+{
+  "runtime": { /* misma forma que GET /info del servicio de inferencia */ },
+  "versions": [
+    {
+      "id": "…", "identifier": "yolov8m + dinov2-vits14 + head-v1",
+      "detector": "yolov8m_best.onnx", "embedder": "dinov2-vits14", "head": "embed_head.pt",
+      "map50": 0.915, "top1": 0.982, "top5": 0.994,
+      "threshold": 0.55, "margin": 0.05,
+      "source": "OE3 — reports/metrics.md", "notes": "…",
+      "active": true, "analysesCount": 31, "registeredAt": "2026-09-09T12:00:00Z"
+    }
+  ]
+}
+```
+
+- `runtime` es `null` si el servicio de inferencia no responde; el histórico se devuelve igualmente.
+- Una versión que el servicio reporte y no esté registrada **se registra sola**: de otro modo habría consultas atribuidas a una versión de la que no consta nada.
+- `PUT` da de alta o corrige las métricas de una versión, identificada por su `identifier`. Un campo omitido conserva su valor anterior.
+
+### `POST /api/users` y `PUT /api/users/{id}` — dependencia policial (RF-12)
+
+`POST` acepta además `dependency`. `PUT` edita `fullName`, `role` y `dependency`; no toca la contraseña ni el estado, que tienen su propio endpoint. `UserListItem` incorpora `dependency` y `lastAccessAt`.
+
+### Almacenamiento cifrado (RNF-06)
+
+Transparente para el contrato: `GET /api/files/{ruta}` devuelve siempre la imagen en claro. En disco, los archivos escritos con `Storage:EncryptionKey` configurada empiezan por la cabecera `RTAI1` y están cifrados con AES-256-GCM. Los archivos anteriores a la activación se siguen leyendo.
+
+### Ajuste de imagen (RF-02)
+
+No añade ningún endpoint: el recorte, el giro y la corrección de brillo y contraste ocurren en el navegador y lo que llega a `POST /api/analyses` es ya la imagen ajustada. Es deliberado — lo que se archiva en el expediente debe ser exactamente lo que se analizó, sin reinterpretación del servidor.
+
+---
+
+## H. Tres clases de coincidencia y calibración del modelo (setiembre 2026)
+
+Cambios derivados de la calibración con datos reales. El detalle de las mediciones está en `docs/RTattooAI_CALIBRACION_MODELO.md`.
+
+### `verdict` admite un valor más
+
+```
+match | review | no_match
+```
+
+`review` es la franja intermedia: hay un candidato razonable pero por debajo del umbral con el que el sistema sostiene una coincidencia. Es el caso del tatuaje gastado, frecuente en la práctica. Presentarlo como `no_match` pierde información útil; presentarlo como `match` afirma algo que el sistema no puede sostener.
+
+El backend lo persiste como texto, de modo que el valor nuevo no requiere migración. **Un veredicto que el backend no reconozca se trata como `no_match`**: ante algo que no entiende, el sistema debe callar antes que afirmar.
+
+### `DetectionDto` incorpora `matchType`
+
+Ortogonal al veredicto: dice *qué clase de cosa* coincidió, no *si* coincidió.
+
+| Valor | Significado |
+|---|---|
+| `band` | Coincide con una entrada del catálogo atribuida a una banda |
+| `unclassified` | Coincide con una entrada **sin banda asignada**. El sistema ya había visto ese tatuaje en otro caso, pero nadie ha determinado a qué corresponde. **No es una atribución de pertenencia** y no debe presentarse como tal |
+| `review` | Candidato por debajo del umbral firme |
+| `none` | Nada por encima del umbral |
+
+`unclassified` existe porque el enrolamiento desde un análisis crea entradas sin banda: al reencontrarlas, el campo `band` de la coincidencia viaja vacío. Antes eso se veía en el historial igual que "sin coincidencia" y en resultados como una coincidencia con banda en blanco.
+
+En `AnalysisSummaryDto`, `topBand` devuelve **"Sin clasificar"** en ese caso, en lugar de una cadena vacía.
+
+### `POST /identify` (servicio de inferencia) devuelve además `review_threshold`
+
+```json
+{ "threshold": 0.70, "margin": 0.0, "review_threshold": 0.55, "...": "..." }
+```
+
+Los umbrales viajan con la respuesta para que el cliente no tenga que suponerlos. Están **calibrados para el tamaño actual de la galería** (25 identidades) y hay que recalibrarlos cuando crezca: está medido que al 5 % de falsos positivos hacen falta 0.665 con 50 identidades y 0.89 con 400.
+
+### `GET /info` (servicio de inferencia) añade tres campos
+
+```json
+{
+  "review_threshold": 0.55,
+  "calibrated_for_identities": 25,
+  "gallery_warning": null,
+  "calibration_warning": null
+}
+```
+
+- `gallery_warning`: la galería no corresponde a la cabeza cargada. Los vectores solo significan algo en el espacio que produce una cabeza concreta; con otra, el sistema **sigue respondiendo** con un candidato y un porcentaje calculados sobre ruido. El servicio se niega a dar esos resultados por buenos y avisa también en el arranque.
+- `calibration_warning`: la galería creció muy por encima del tamaño con el que se calibraron los umbrales, de modo que el sistema está aceptando más impostores de los previstos.
+
+### `GET /api/catalog` añade el filtro `pendingBand`
+
+`pendingBand=true` devuelve solo las entradas sin banda asignada: es la bandeja de trabajo de supervisión, el destino de lo que se enrola desde un análisis.
+
+### Cambio de umbrales operativos
+
+| Parámetro | Antes | Ahora | Motivo |
+|---|---:|---:|---|
+| `match_threshold` (ρ) | 0.55 | 0.70 | El valor anterior producía **43 % de falsos positivos** medido sobre datos reales |
+| `match_margin` (δ) | 0.05 | 0.0 | Con el umbral recalibrado no aporta separación adicional |
+| `review_threshold` | — | 0.55 | Franja intermedia, nueva |
+| `det_conf` | 0.15 | 0.60 | Con 0.15 el detector marcaba algo en el **52 %** de las fotografías de personas sin tatuajes, sobre todo uñas decoradas |
+
+La escala de similitud del frontend (`SIMILARITY_STRONG` / `SIMILARITY_THRESHOLD`) se mueve con estos valores: son los mismos cortes, no una escala aparte. Si se separan, la pantalla dice una cosa y el sistema hace otra.
+
+---
+
+## I. Coherencia entre catálogo y galería (setiembre 2026)
+
+El catálogo (base de datos) y la galería (vectores del servicio de inferencia) viven en sitios distintos y ninguna transacción los abarca. El 11/09/2026 eso produjo una atribución falsa: al reconstruir la galería el 10/09 quedó fuera el tatuaje `tat_00026` del catálogo; al enrolar otro tatuaje, la galería volvió a repartir ese código, la base rechazó la ficha por código duplicado y los vectores se quedaron. Desde entonces ese tatuaje coincidía con la ficha del primero y con su banda. Esta sección cierra las dos puertas y añade una forma de auditarlo.
+
+### `POST /enroll` (servicio de inferencia) acepta `catalog_id`
+
+- `catalog_id` (opcional): código con el que se guardan los vectores. Si ya tiene vectores, responde **409** sin tocar la galería. Sin él, la galería asigna el siguiente libre, como antes.
+- Cada vista guarda `image_sha256`, la huella SHA-256 de los bytes recibidos: es la misma que el backend guarda en `ImagenHash`, de modo que ambos lados pueden comprobar que un código corresponde a la misma imagen.
+
+### `GET /gallery` (servicio de inferencia, INTERNO)
+
+```json
+{
+  "entries": [ { "catalog_id": "tat_00026", "views": 5, "image_sha256": "9f2c…" } ],
+  "shared_vectors": [ ["tat_00026", "tat_00027"] ]
+}
+```
+
+`image_sha256` es `null` en vistas anteriores a que existiera. `shared_vectors` agrupa códigos distintos que contienen exactamente el mismo vector: dos tatuajes distintos no lo producen, así que indica la misma imagen enrolada dos veces.
+
+### `DELETE /gallery/{catalog_id}` (servicio de inferencia, INTERNO)
+
+Quita todas las vistas del código. **200** `{ "catalog_id": "…", "removed_views": 5 }`; **404** si no tenía ninguna. Antes de escribir deja una copia fechada del archivo de la galería.
+
+### Enrolamiento en el backend
+
+`POST /api/catalog` y `POST /api/analyses/{id}/enroll` calculan el código a partir de los que existen en el catálogo, lo piden explícitamente, saltan al siguiente si la galería responde 409 y, si la ficha no llega a guardarse, retiran los vectores con `DELETE /gallery/{catalog_id}`. El contrato hacia el frontend no cambia.
+
+### `GET /api/models/gallery` (supervisor/admin)
+
+```json
+{
+  "serviceAvailable": true,
+  "catalogEntries": 27,
+  "galleryIdentities": 27,
+  "missingInGallery": [],
+  "orphansInGallery": [],
+  "imageMismatch": ["tat_00026"],
+  "sharedVectors": [["tat_00026", "tat_00027"]],
+  "unverified": 25,
+  "consistent": false
+}
+```
+
+- `missingInGallery`: fichas sin vectores; el sistema nunca las reconocerá.
+- `orphansInGallery`: vectores sin ficha.
+- `imageMismatch`: la huella de los vectores no es la de la imagen de la ficha.
+- `unverified`: códigos presentes en ambos lados sin huella de imagen; no se pueden cotejar imagen a imagen.
+
+### `POST /api/models/gallery/repair` (admin)
+
+Vuelve a enrolar desde la imagen guardada las fichas sin vectores, con vectores de otra imagen o con vectores compartidos —quitando antes los que tuvieran. Los códigos sin huella que no tienen ningún problema detectable no se tocan: los de la galería base salen de varias imágenes del dataset y enrolarlos desde una sola los empeoraría.
+
+**Nunca quita los vectores sin ficha (`orphansInGallery`).** No tener ficha en el catálogo no significa que sobren: pasó el 15/09/2026 en un despliegue cuyo catálogo nunca llegó a tener las 25 identidades base de la galería —viven ahí solo como vectores, sembrados aparte—, y reparar borró las 25 de un pulsazo. `removed` queda siempre vacío; se conserva en la respuesta por si en el futuro se ofrece una acción de limpieza aparte, explícita.
+
+```json
+{ "reenrolled": ["tat_00026", "tat_00027"], "removed": [], "failed": [], "after": { "consistent": true, "…": "…" } }
+```
+
+**400** si el servicio de inferencia no responde o si el catálogo está vacío: con el catálogo vacío toda la galería parecería huérfana.
+
+### Detector servido en `.pt`
+
+Desde el 14/09/2026 `GET /info` informa `detector: yolov8m_hardneg.pt` y la versión pasa a `yolov8m-hardneg-pt + dinov2-vits14 + head-v2`. Son los mismos pesos que el ONNX anterior, pero es el formato con el que se calibró `det_conf = 0.60`, y en fotografías no cuadradas daba confianzas distintas (ver `RTattooAI_BITACORA_EXPERIMENTOS.md`, E-13).
